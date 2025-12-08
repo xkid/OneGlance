@@ -1,5 +1,4 @@
 
-
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { AppData, Transaction, ParentCareLog, InvestmentItem, DividendLog, TaxReliefItem, SaleLog, FixedDeposit, FundSnapshot, PurchaseLog } from '../types';
 
@@ -116,10 +115,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const addInvestment = (newItem: InvestmentItem) => {
     setData(prev => {
         // Check if holding already exists (Same Symbol AND Same Type)
-        // If "regardless of agent" is desired, we match by symbol. 
-        // We will update the agent to "Multiple" if they differ.
+        // Normalized check (case insensitive for symbol)
         const existingIndex = prev.investments.findIndex(i => 
-            i.symbol === newItem.symbol && i.type === newItem.type
+            i.symbol.toLowerCase() === newItem.symbol.toLowerCase() && i.type === newItem.type
         );
 
         if (existingIndex > -1) {
@@ -131,6 +129,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             const totalCostNew = newItem.unitsHeld * newItem.purchasePrice;
             const newTotalUnits = existing.unitsHeld + newItem.unitsHeld;
             
+            // Weighted Average: (Old Total Cost + New Total Cost) / New Total Units
             const newAvgPrice = newTotalUnits > 0 ? (totalCostOld + totalCostNew) / newTotalUnits : 0;
 
             // Generate History Log for the new purchase
@@ -154,15 +153,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     agent: existing.agent
                 }
             ];
+            
+            // Logic for Agent Merging:
+            // If the agents are different (e.g., 'Public Mutual' vs 'Direct'), set to 'Multiple'.
+            // If they are the same, keep the existing one.
+            const newAgent = existing.agent === 'Multiple' || existing.agent !== newItem.agent 
+                             ? 'Multiple' 
+                             : existing.agent;
 
             const updatedItem: InvestmentItem = {
                 ...existing,
                 unitsHeld: newTotalUnits,
                 purchasePrice: newAvgPrice,
                 purchaseHistory: [...existingHistory, newPurchaseLog],
-                // Update agent to Multiple if different, or keep existing if same
-                agent: existing.agent === newItem.agent ? existing.agent : 'Multiple',
-                // Keep the latest purchase date or earliest? Usually latest activity
+                agent: newAgent,
+                // Update purchase date to reflect latest activity, or keep original? 
+                // Usually for a holding card, the 'last buy' date is useful, but the history array tracks details.
                 purchaseDate: newItem.purchaseDate, 
             };
 

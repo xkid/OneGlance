@@ -1,5 +1,5 @@
 {
-  "name": "WealthTrack iOS",
+  "name": "OneGlance",
   "description": "A comprehensive, IOS-styled financial tracking application with modules for expenses, parent care, investments (shares/funds), fixed deposits, and tax relief. Features real-time market data via Gemini.",
   "requestFramePermissions": []
 }
