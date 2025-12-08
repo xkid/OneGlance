@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { CURRENCIES, InvestmentItem } from '../types';
@@ -13,6 +14,7 @@ export const StatsView: React.FC = () => {
   const [importStatus, setImportStatus] = useState<string>('');
   const [moduleView, setModuleView] = useState<'expenses' | 'parent' | 'invest' | 'tax' | 'fd'>('expenses');
   const [selectedHistoryYear, setSelectedHistoryYear] = useState<number>(new Date().getFullYear());
+  const [selectedTaxYear, setSelectedTaxYear] = useState<number>(new Date().getFullYear());
   const [selectedShareCurrency, setSelectedShareCurrency] = useState<string>('All');
 
   // Auto-capture fund snapshot on mount (throttled to once per day via context logic check)
@@ -216,7 +218,7 @@ export const StatsView: React.FC = () => {
   }, [data.investments, data.sales, selectedHistoryYear]);
 
 
-  // 4. TAX & PARENT & FD DATA (Existing logic)
+  // 4. TAX DATA
   const taxByYear = useMemo(() => {
       const manual = data.taxItems.reduce((acc, t) => {
           acc[t.year] = (acc[t.year] || 0) + t.amount;
@@ -229,6 +231,26 @@ export const StatsView: React.FC = () => {
       return Object.keys(manual).map(y => ({ name: y, Amount: manual[parseInt(y)] }));
   }, [data.taxItems, data.transactions]);
 
+  const taxByCategory = useMemo(() => {
+      const breakdown: Record<string, number> = {};
+      
+      // Manual Items
+      data.taxItems.filter(t => t.year === selectedTaxYear).forEach(t => {
+          breakdown[t.category] = (breakdown[t.category] || 0) + t.amount;
+      });
+
+      // Synced Transactions (Expenses flagged as Tax Relief)
+      data.transactions.filter(t => t.isTaxRelief && t.date.startsWith(selectedTaxYear.toString())).forEach(t => {
+          breakdown[t.category] = (breakdown[t.category] || 0) + t.amount;
+      });
+
+      return Object.keys(breakdown).map(cat => ({
+          name: cat,
+          value: breakdown[cat]
+      })).sort((a,b) => b.value - a.value);
+  }, [data.taxItems, data.transactions, selectedTaxYear]);
+
+  // 5. PARENT & FD DATA (Existing logic)
   const parentTrend = useMemo(() => {
       return data.parentLogs.map(l => ({
           name: l.monthStr,
@@ -642,20 +664,47 @@ export const StatsView: React.FC = () => {
 
         {/* --- VIEW: TAX --- */}
         {moduleView === 'tax' && (
-            <Card title="Annual Tax Relief Eligible Amount">
-                <div className="h-[250px] w-full mt-2">
-                    {taxByYear.length > 0 ? (
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={taxByYear}>
-                                <XAxis dataKey="name" fontSize={10} tickLine={false} axisLine={false}/>
-                                <YAxis fontSize={10} tickLine={false} axisLine={false}/>
-                                <Tooltip />
-                                <Bar dataKey="Amount" fill="#5856D6" radius={[4, 4, 0, 0]} barSize={40} />
-                            </BarChart>
-                        </ResponsiveContainer>
-                    ) : <div className="h-full flex items-center justify-center text-gray-400">No Tax Data</div>}
-                </div>
-            </Card>
+            <div className="space-y-6">
+                <Card title="Tax Relief by Category">
+                     <div className="flex justify-between items-center mb-4">
+                        <div className="flex-1"></div>
+                        <select 
+                            value={selectedTaxYear} 
+                            onChange={e => setSelectedTaxYear(parseInt(e.target.value))}
+                            className="text-xs bg-gray-100 p-1.5 rounded-lg font-semibold border-none focus:ring-0"
+                        >
+                            {[2023, 2024, 2025, 2026, 2027].map(y => <option key={y} value={y}>{y}</option>)}
+                        </select>
+                     </div>
+                     <div className="h-[300px] w-full">
+                        {taxByCategory.length > 0 ? (
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={taxByCategory} margin={{ top: 5, right: 0, left: -20, bottom: 5 }}>
+                                    <XAxis dataKey="name" fontSize={10} tickLine={false} axisLine={false} interval={0} angle={-45} textAnchor="end" height={80}/>
+                                    <YAxis fontSize={10} tickLine={false} axisLine={false}/>
+                                    <Tooltip cursor={{fill: '#f3f4f6'}} />
+                                    <Bar dataKey="value" fill="#5856D6" radius={[4, 4, 0, 0]} name="Amount" />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        ) : <div className="h-full flex items-center justify-center text-gray-400">No Tax Data for {selectedTaxYear}</div>}
+                    </div>
+                </Card>
+
+                <Card title="Annual Trend (Total Eligible)">
+                    <div className="h-[250px] w-full mt-2">
+                        {taxByYear.length > 0 ? (
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={taxByYear}>
+                                    <XAxis dataKey="name" fontSize={10} tickLine={false} axisLine={false}/>
+                                    <YAxis fontSize={10} tickLine={false} axisLine={false}/>
+                                    <Tooltip />
+                                    <Bar dataKey="Amount" fill="#818CF8" radius={[4, 4, 0, 0]} barSize={40} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        ) : <div className="h-full flex items-center justify-center text-gray-400">No Historical Data</div>}
+                    </div>
+                </Card>
+            </div>
         )}
 
         {/* Global Settings */}

@@ -47,19 +47,29 @@ export interface ParentCareLog {
   bbfNote?: string; 
 }
 
+export interface PurchaseLog {
+  id: string;
+  date: string;
+  units: number;
+  price: number; // Unit price at time of purchase
+  cost: number; // Total cost (units * price)
+  agent: string;
+}
+
 export interface InvestmentItem {
   id: string;
   type: 'share' | 'fund';
   name: string;
   symbol: string; // e.g., 1155.KL or Fund Code
   agent: string; // Hwang DBS, MooMoo, etc.
-  purchasePrice: number;
+  purchasePrice: number; // Average Unit Price
   currency?: string; // New: Currency code
   unitsHeld: number;
-  purchaseDate: string;
+  purchaseDate: string; // Date of first purchase or last update
   currentPrice?: number; // Fetched via Gemini
   lastUpdated?: string;
   notes?: string; // New: Optional notes
+  purchaseHistory?: PurchaseLog[]; // New: History of accumulated purchases
 }
 
 export interface DividendLog {

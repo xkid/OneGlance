@@ -1,7 +1,7 @@
 
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { AppData, Transaction, ParentCareLog, InvestmentItem, DividendLog, TaxReliefItem, SaleLog, FixedDeposit, FundSnapshot } from '../types';
+import { AppData, Transaction, ParentCareLog, InvestmentItem, DividendLog, TaxReliefItem, SaleLog, FixedDeposit, FundSnapshot, PurchaseLog } from '../types';
 
 interface AppContextType {
   data: AppData;
@@ -11,6 +11,7 @@ interface AppContextType {
   updateParentLog: (log: ParentCareLog) => void;
   addInvestment: (i: InvestmentItem) => void;
   updateInvestment: (i: InvestmentItem) => void;
+  deleteInvestment: (id: string) => void;
   recordInvestmentSale: (log: SaleLog) => void;
   updateInvestmentPrice: (id: string, price: number) => void;
   addDividend: (d: DividendLog) => void;
@@ -112,8 +113,76 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   };
 
-  const addInvestment = (i: InvestmentItem) => {
-    setData(prev => ({ ...prev, investments: [...prev.investments, i] }));
+  const addInvestment = (newItem: InvestmentItem) => {
+    setData(prev => {
+        // Check if holding already exists (Same Symbol AND Same Type)
+        // If "regardless of agent" is desired, we match by symbol. 
+        // We will update the agent to "Multiple" if they differ.
+        const existingIndex = prev.investments.findIndex(i => 
+            i.symbol === newItem.symbol && i.type === newItem.type
+        );
+
+        if (existingIndex > -1) {
+            // Accumulate
+            const existing = prev.investments[existingIndex];
+            
+            // Calculate new Weighted Average Price
+            const totalCostOld = existing.unitsHeld * existing.purchasePrice;
+            const totalCostNew = newItem.unitsHeld * newItem.purchasePrice;
+            const newTotalUnits = existing.unitsHeld + newItem.unitsHeld;
+            
+            const newAvgPrice = newTotalUnits > 0 ? (totalCostOld + totalCostNew) / newTotalUnits : 0;
+
+            // Generate History Log for the new purchase
+            const newPurchaseLog: PurchaseLog = {
+                id: Date.now().toString(),
+                date: newItem.purchaseDate,
+                units: newItem.unitsHeld,
+                price: newItem.purchasePrice,
+                cost: totalCostNew,
+                agent: newItem.agent
+            };
+
+            // Ensure existing has history initialized if legacy
+            const existingHistory: PurchaseLog[] = existing.purchaseHistory || [
+                {
+                    id: 'legacy_init_' + existing.id,
+                    date: existing.purchaseDate,
+                    units: existing.unitsHeld,
+                    price: existing.purchasePrice,
+                    cost: totalCostOld,
+                    agent: existing.agent
+                }
+            ];
+
+            const updatedItem: InvestmentItem = {
+                ...existing,
+                unitsHeld: newTotalUnits,
+                purchasePrice: newAvgPrice,
+                purchaseHistory: [...existingHistory, newPurchaseLog],
+                // Update agent to Multiple if different, or keep existing if same
+                agent: existing.agent === newItem.agent ? existing.agent : 'Multiple',
+                // Keep the latest purchase date or earliest? Usually latest activity
+                purchaseDate: newItem.purchaseDate, 
+            };
+
+            const newInvestments = [...prev.investments];
+            newInvestments[existingIndex] = updatedItem;
+            return { ...prev, investments: newInvestments };
+        } else {
+            // New Holding
+            // Initialize history
+            const history: PurchaseLog[] = [{
+                id: Date.now().toString(),
+                date: newItem.purchaseDate,
+                units: newItem.unitsHeld,
+                price: newItem.purchasePrice,
+                cost: newItem.unitsHeld * newItem.purchasePrice,
+                agent: newItem.agent
+            }];
+            return { ...prev, investments: [...prev.investments, { ...newItem, purchaseHistory: history }] };
+        }
+    });
   };
 
   const updateInvestment = (updatedItem: InvestmentItem) => {
@@ -121,6 +190,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           ...prev,
           investments: prev.investments.map(i => i.id === updatedItem.id ? updatedItem : i)
       }));
+  };
+
+  const deleteInvestment = (id: string) => {
+      setData(prev => ({ ...prev, investments: prev.investments.filter(i => i.id !== id) }));
   };
 
   const recordInvestmentSale = (log: SaleLog) => {
@@ -258,9 +331,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } else if (module === 'investments') {
       header = "RecordType,Name,Symbol,Agent,Date,Units,Price,Amount,Notes";
       
-      const portfolioRows = data.investments.map(i => 
-        `HOLDING,"${i.name}",${i.symbol},${i.agent},${i.purchaseDate},${i.unitsHeld},${i.purchasePrice},${(i.unitsHeld * i.purchasePrice).toFixed(2)},"CurrentPrice: ${i.currentPrice || 0}"`
-      );
+      const portfolioRows = data.investments.map(i => {
+         const mainRow = `HOLDING,"${i.name}",${i.symbol},${i.agent},${i.purchaseDate},${i.unitsHeld},${i.purchasePrice},${(i.unitsHeld * i.purchasePrice).toFixed(2)},"CurrentPrice: ${i.currentPrice || 0}; AvgPrice: ${i.purchasePrice}"`;
+         // Export history as separate rows if needed, or simply append info. Let's do separate rows for clarity
+         const histRows = i.purchaseHistory ? i.purchaseHistory.map(h => 
+            `HISTORY,"${i.name}",${i.symbol},${h.agent},${h.date},${h.units},${h.price},${h.cost},`
+         ).join('\n') : '';
+         return mainRow + (histRows ? '\n' + histRows : '');
+      });
 
       const saleRows = data.sales.map(s => 
         `SALE,"${s.itemName}",,${s.agent},${s.date},${s.unitsSold},${s.pricePerUnit},${s.totalAmount.toFixed(2)},`
@@ -304,7 +382,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   return (
     <AppContext.Provider value={{ 
       data, addTransaction, updateTransaction, deleteTransaction, updateParentLog, 
-      addInvestment, updateInvestment, recordInvestmentSale, updateInvestmentPrice, addDividend, 
+      addInvestment, updateInvestment, deleteInvestment, recordInvestmentSale, updateInvestmentPrice, addDividend, 
       captureFundSnapshot,
       addTaxItem, updateTaxItem, deleteTaxItem, 
       addFixedDeposit, updateFixedDeposit, deleteFixedDeposit,

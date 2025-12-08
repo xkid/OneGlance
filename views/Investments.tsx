@@ -5,10 +5,10 @@ import { useApp } from '../context/AppContext';
 import { STOCK_AGENTS, InvestmentItem, PREDEFINED_STOCKS, PREDEFINED_FUNDS, SaleLog, DividendLog, CURRENCIES } from '../types';
 import { Card, Button, Input, Select, Badge } from '../components/Shared';
 import { fetchMarketPrice } from '../services/geminiService';
-import { Plus, RefreshCw, TrendingUp, TrendingDown, ExternalLink, Download, Edit2, DollarSign, Coins, X, StickyNote } from 'lucide-react';
+import { Plus, RefreshCw, TrendingUp, TrendingDown, ExternalLink, Download, Edit2, DollarSign, Coins, X, StickyNote, Trash2 } from 'lucide-react';
 
 export const InvestmentsView: React.FC = () => {
-  const { data, addInvestment, updateInvestment, recordInvestmentSale, updateInvestmentPrice, addDividend, exportDataCSV } = useApp();
+  const { data, addInvestment, updateInvestment, deleteInvestment, recordInvestmentSale, updateInvestmentPrice, addDividend, exportDataCSV } = useApp();
   const [activeTab, setActiveTab] = useState<'share' | 'fund'>('share');
   const [loading, setLoading] = useState<string | null>(null);
   
@@ -20,6 +20,9 @@ export const InvestmentsView: React.FC = () => {
 
   // Form Data States
   const [currentItem, setCurrentItem] = useState<Partial<InvestmentItem>>({ type: 'share', agent: 'Direct', currency: 'MYR' });
+  // Specific state for Mutual Fund Total Spend input
+  const [fundTotalSpend, setFundTotalSpend] = useState<string>('');
+
   const [saleData, setSaleData] = useState({ units: '', price: '', date: new Date().toISOString().split('T')[0] });
   const [divData, setDivData] = useState({ amount: '', date: new Date().toISOString().split('T')[0], notes: '' });
 
@@ -27,8 +30,6 @@ export const InvestmentsView: React.FC = () => {
   const items = data.investments.filter(i => i.type === activeTab && i.unitsHeld > 0);
   
   // Calculations (Simplified mixed currency sum for display)
-  // Note: Ideally we convert everything to base currency, but for now we sum raw values
-  // or primarily treat as MYR visual
   const currentValue = items.reduce((sum, i) => sum + ((i.currentPrice || i.purchasePrice) * i.unitsHeld), 0);
   const totalInvested = items.reduce((sum, i) => sum + (i.purchasePrice * i.unitsHeld), 0);
   
@@ -49,27 +50,47 @@ export const InvestmentsView: React.FC = () => {
   // --- ADD / EDIT HANDLERS ---
   const openAddModal = () => {
       setCurrentItem({ type: activeTab, agent: 'Direct', currency: 'MYR', purchaseDate: new Date().toISOString().split('T')[0] });
+      setFundTotalSpend('');
       setShowAddModal(true);
   };
 
   const openEditModal = (item: InvestmentItem) => {
       setCurrentItem({ ...item, currency: item.currency || 'MYR' });
+      // For editing, we stick to Unit Price
+      setFundTotalSpend(''); 
       setShowEditModal(true);
   };
 
+  const handleDelete = (id: string) => {
+      if (confirm("Are you sure you want to delete this holding? This action cannot be undone.")) {
+          deleteInvestment(id);
+      }
+  };
+
   const handleSaveItem = () => {
-      if(currentItem.name && currentItem.symbol && currentItem.purchasePrice && currentItem.unitsHeld) {
+      let finalPurchasePrice = Number(currentItem.purchasePrice);
+      const units = Number(currentItem.unitsHeld);
+
+      // Special Logic for Mutual Funds Add: Calculate Price from Total Spend
+      if (activeTab === 'fund' && showAddModal && fundTotalSpend) {
+          const total = parseFloat(fundTotalSpend);
+          if (total > 0 && units > 0) {
+              finalPurchasePrice = total / units;
+          }
+      }
+
+      if(currentItem.name && currentItem.symbol && finalPurchasePrice > 0 && units > 0) {
           const itemPayload: InvestmentItem = {
               id: currentItem.id || Date.now().toString(),
               type: activeTab,
               name: currentItem.name,
               symbol: currentItem.symbol,
               agent: currentItem.agent || 'Direct',
-              purchasePrice: Number(currentItem.purchasePrice),
+              purchasePrice: finalPurchasePrice,
               currency: currentItem.currency || 'MYR',
-              unitsHeld: Number(currentItem.unitsHeld),
+              unitsHeld: units,
               purchaseDate: currentItem.purchaseDate || new Date().toISOString().split('T')[0],
-              currentPrice: currentItem.currentPrice || Number(currentItem.purchasePrice),
+              currentPrice: currentItem.currentPrice || finalPurchasePrice,
               notes: currentItem.notes || ''
           };
 
@@ -80,6 +101,8 @@ export const InvestmentsView: React.FC = () => {
           }
           setShowAddModal(false);
           setShowEditModal(false);
+      } else {
+          alert("Please fill in all fields correctly.");
       }
   };
 
@@ -221,8 +244,16 @@ export const InvestmentsView: React.FC = () => {
             const currency = item.currency || 'MYR';
 
             return (
-                <div key={item.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-                    <div className="flex justify-between items-start mb-3">
+                <div key={item.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 relative group">
+                     {/* Delete Button (Top Right) */}
+                    <button 
+                        onClick={() => handleDelete(item.id)}
+                        className="absolute top-2 right-2 p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
+                    >
+                        <Trash2 size={14}/>
+                    </button>
+
+                    <div className="flex justify-between items-start mb-3 pr-8">
                         <div>
                             <div className="flex items-center gap-2">
                                 <h4 className="font-bold text-gray-900 text-sm max-w-[150px] truncate">{item.name}</h4>
@@ -231,7 +262,7 @@ export const InvestmentsView: React.FC = () => {
                             <p className="text-xs text-gray-500 mt-1">{item.agent} • {item.unitsHeld} Units</p>
                         </div>
                         <div className="text-right">
-                            <p className="font-bold text-gray-900">{currency} {(item.currentPrice || item.purchasePrice).toFixed(2)}</p>
+                            <p className="font-bold text-gray-900">{currency} {(item.currentPrice || item.purchasePrice).toFixed(4)}</p>
                             <p className="text-xs text-gray-400">Curr Price</p>
                         </div>
                     </div>
@@ -242,6 +273,11 @@ export const InvestmentsView: React.FC = () => {
                             <span>{item.notes}</span>
                         </div>
                     )}
+
+                    {/* Show Avg Price if accumulated */}
+                    <div className="mb-2 text-xs text-gray-500">
+                        Avg Cost: {item.purchasePrice.toFixed(4)}
+                    </div>
                     
                     <div className="flex justify-between items-center border-t border-gray-50 pt-3 mb-3">
                         <div>
@@ -337,10 +373,35 @@ export const InvestmentsView: React.FC = () => {
                                 {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
                             </select>
                          </div>
-                         <Input type="number" label="Buy Price" value={currentItem.purchasePrice || ''} onChange={e => setCurrentItem({...currentItem, purchasePrice: parseFloat(e.target.value)})}/>
+                         
+                         {/* Dynamic Input based on Type & Mode */}
+                         {activeTab === 'fund' && showAddModal ? (
+                             <Input 
+                                type="number" 
+                                label="Total Amount Spent" 
+                                value={fundTotalSpend} 
+                                onChange={e => setFundTotalSpend(e.target.value)}
+                                placeholder="Total MYR"
+                             />
+                         ) : (
+                             <Input 
+                                type="number" 
+                                label={activeTab === 'fund' ? "Avg Unit Price" : "Buy Price"} 
+                                value={currentItem.purchasePrice || ''} 
+                                onChange={e => setCurrentItem({...currentItem, purchasePrice: parseFloat(e.target.value)})}
+                             />
+                         )}
                       </div>
                       
-                      <Input type="number" label="Units Held" value={currentItem.unitsHeld || ''} onChange={e => setCurrentItem({...currentItem, unitsHeld: parseFloat(e.target.value)})}/>
+                      <Input type="number" label="Units" value={currentItem.unitsHeld || ''} onChange={e => setCurrentItem({...currentItem, unitsHeld: parseFloat(e.target.value)})}/>
+                      
+                      {/* Show Calculated Price Preview for Funds */}
+                      {activeTab === 'fund' && showAddModal && fundTotalSpend && currentItem.unitsHeld && (
+                          <div className="text-right text-xs text-gray-500 -mt-2 mb-2">
+                              Calculated Price/Unit: <span className="font-bold">{(parseFloat(fundTotalSpend) / currentItem.unitsHeld).toFixed(4)}</span>
+                          </div>
+                      )}
+
                       <Input type="date" label="Purchase Date" value={currentItem.purchaseDate} onChange={e => setCurrentItem({...currentItem, purchaseDate: e.target.value})}/>
                       
                       <div className="mb-3">
@@ -355,7 +416,11 @@ export const InvestmentsView: React.FC = () => {
                       </div>
                   </div>
                   <div className="p-4 bg-gray-50">
-                      <Button className="w-full" onClick={handleSaveItem}>Save Changes</Button>
+                      <Button className="w-full" onClick={handleSaveItem}>
+                          {showAddModal && currentItem.symbol && data.investments.some(i => i.symbol === currentItem.symbol && i.type === activeTab) 
+                             ? "Add & Accumulate" 
+                             : "Save Changes"}
+                      </Button>
                   </div>
               </div>
           </div>
