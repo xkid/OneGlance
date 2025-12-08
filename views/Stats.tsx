@@ -65,7 +65,8 @@ export const StatsView: React.FC = () => {
 
   // 2. INVEST DATA (SHARES - Performance)
   const investShareData = useMemo(() => {
-      let shares = data.investments.filter(i => i.type === 'share');
+      // Filter for shares AND ensure unitsHeld > 0
+      let shares = data.investments.filter(i => i.type === 'share' && i.unitsHeld > 0);
       
       if (selectedShareCurrency !== 'All') {
           shares = shares.filter(i => (i.currency || 'MYR') === selectedShareCurrency);
@@ -399,7 +400,7 @@ export const StatsView: React.FC = () => {
                                     <Bar dataKey="Dividends" fill="#34C759" name="Accum. Dividends" radius={[4, 4, 0, 0]} />
                                 </BarChart>
                             </ResponsiveContainer>
-                        ) : <div className="h-full flex items-center justify-center text-gray-400">No Share Data for selected currency</div>}
+                        ) : <div className="h-full flex items-center justify-center text-gray-400">No active shares found</div>}
                     </div>
                 </Card>
 
