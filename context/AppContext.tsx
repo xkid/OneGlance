@@ -1,0 +1,322 @@
+
+
+import React, { createContext, useContext, useEffect, useState } from 'react';
+import { AppData, Transaction, ParentCareLog, InvestmentItem, DividendLog, TaxReliefItem, SaleLog, FixedDeposit, FundSnapshot } from '../types';
+
+interface AppContextType {
+  data: AppData;
+  addTransaction: (t: Transaction) => void;
+  updateTransaction: (t: Transaction) => void;
+  deleteTransaction: (id: string) => void;
+  updateParentLog: (log: ParentCareLog) => void;
+  addInvestment: (i: InvestmentItem) => void;
+  updateInvestment: (i: InvestmentItem) => void;
+  recordInvestmentSale: (log: SaleLog) => void;
+  updateInvestmentPrice: (id: string, price: number) => void;
+  addDividend: (d: DividendLog) => void;
+  captureFundSnapshot: () => void;
+  addTaxItem: (t: TaxReliefItem) => void;
+  updateTaxItem: (t: TaxReliefItem) => void;
+  deleteTaxItem: (id: string) => void;
+  addFixedDeposit: (fd: FixedDeposit) => void;
+  updateFixedDeposit: (fd: FixedDeposit) => void;
+  deleteFixedDeposit: (id: string) => void;
+  importData: (jsonData: string) => boolean;
+  exportDataJSON: () => string;
+  exportDataCSV: (module: 'expenses' | 'parent' | 'investments' | 'tax' | 'fd' | 'fund_history') => string;
+}
+
+const defaultData: AppData = {
+  transactions: [],
+  parentLogs: [],
+  investments: [
+    { id: '1', type: 'share', agent: 'Direct', name: 'MAYBANK', symbol: '1155.KL', purchasePrice: 8.50, unitsHeld: 1000, purchaseDate: '2023-01-15' },
+    { id: '2', type: 'share', agent: 'Direct', name: 'CIMB Group', symbol: '1023.KL', purchasePrice: 5.20, unitsHeld: 1500, purchaseDate: '2023-02-20' },
+    { id: '3', type: 'share', agent: 'Hwang DBS', name: 'Oversea-Chinese Banking Corp', symbol: 'O39.SI', purchasePrice: 12.50, unitsHeld: 500, purchaseDate: '2023-03-10' },
+    { id: '4', type: 'share', agent: 'MooMoo', name: 'Boston Scientific Corp', symbol: 'BSX', purchasePrice: 50.00, unitsHeld: 50, purchaseDate: '2023-04-05' },
+    { id: '5', type: 'share', agent: 'MooMoo', name: 'Alphabet Inc C', symbol: 'GOOG', purchasePrice: 120.00, unitsHeld: 20, purchaseDate: '2023-05-12' },
+    { id: '6', type: 'fund', agent: 'Public Mutual', name: 'Principal Greater China Equity Fund', symbol: 'PGC-MYR', purchasePrice: 0.85, unitsHeld: 5000, purchaseDate: '2022-06-01' },
+  ],
+  dividends: [],
+  sales: [],
+  fundSnapshots: [],
+  taxItems: [],
+  fixedDeposits: []
+};
+
+const AppContext = createContext<AppContextType | undefined>(undefined);
+
+export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [data, setData] = useState<AppData>(defaultData);
+
+  // Load from LocalStorage on mount
+  useEffect(() => {
+    const stored = localStorage.getItem('wealthtrack_data');
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        
+        // Migration: Ensure parent logs have contributionDetails, expenseDetails and bbfNotes
+        if (parsed.parentLogs) {
+            parsed.parentLogs = parsed.parentLogs.map((log: any) => ({
+                ...log,
+                contributionDetails: log.contributionDetails || [],
+                expenseDetails: log.expenseDetails || (log.expenses > 0 ? [{ id: 'legacy', category: 'Others', amount: log.expenses, notes: 'Legacy Migration' }] : []),
+                bbfNotes: log.bbfNotes || (log.bbfNote ? { "General Balance": log.bbfNote } : {})
+            }));
+        }
+        // Migration: Ensure sales array exists
+        if (!parsed.sales) parsed.sales = [];
+        // Migration: Ensure fixedDeposits exists
+        if (!parsed.fixedDeposits) parsed.fixedDeposits = [];
+        // Migration: Ensure fundSnapshots exists
+        if (!parsed.fundSnapshots) parsed.fundSnapshots = [];
+
+        setData(parsed);
+      } catch (e) {
+        console.error("Failed to parse local storage", e);
+      }
+    }
+  }, []);
+
+  // Save to LocalStorage on change
+  useEffect(() => {
+    localStorage.setItem('wealthtrack_data', JSON.stringify(data));
+  }, [data]);
+
+  const addTransaction = (t: Transaction) => {
+    setData(prev => ({ ...prev, transactions: [t, ...prev.transactions] }));
+  };
+
+  const updateTransaction = (updatedT: Transaction) => {
+    setData(prev => ({
+        ...prev,
+        transactions: prev.transactions.map(t => t.id === updatedT.id ? updatedT : t)
+    }));
+  };
+
+  const deleteTransaction = (id: string) => {
+    setData(prev => ({ ...prev, transactions: prev.transactions.filter(t => t.id !== id) }));
+  };
+
+  const updateParentLog = (log: ParentCareLog) => {
+    setData(prev => {
+      const exists = prev.parentLogs.find(l => l.id === log.id);
+      let newLogs;
+      if (exists) {
+        newLogs = prev.parentLogs.map(l => l.id === log.id ? log : l);
+      } else {
+        newLogs = [...prev.parentLogs, log];
+      }
+      return { ...prev, parentLogs: newLogs };
+    });
+  };
+
+  const addInvestment = (i: InvestmentItem) => {
+    setData(prev => ({ ...prev, investments: [...prev.investments, i] }));
+  };
+
+  const updateInvestment = (updatedItem: InvestmentItem) => {
+      setData(prev => ({
+          ...prev,
+          investments: prev.investments.map(i => i.id === updatedItem.id ? updatedItem : i)
+      }));
+  };
+
+  const recordInvestmentSale = (log: SaleLog) => {
+      setData(prev => {
+          // 1. Add Sales Log
+          const newSales = [...prev.sales, log];
+          
+          // 2. Update Units Held
+          const newInvestments = prev.investments.map(i => {
+              if (i.id === log.investmentId) {
+                  return { ...i, unitsHeld: Math.max(0, i.unitsHeld - log.unitsSold) };
+              }
+              return i;
+          });
+
+          return { ...prev, sales: newSales, investments: newInvestments };
+      });
+  };
+
+  const updateInvestmentPrice = (id: string, price: number) => {
+    setData(prev => ({
+      ...prev,
+      investments: prev.investments.map(i => i.id === id ? { ...i, currentPrice: price, lastUpdated: new Date().toISOString() } : i)
+    }));
+  };
+
+  const addDividend = (d: DividendLog) => {
+    setData(prev => ({ ...prev, dividends: [...prev.dividends, d] }));
+  };
+
+  const captureFundSnapshot = () => {
+    setData(prev => {
+        const today = new Date().toISOString().split('T')[0];
+        // Check if snapshot already exists for today to avoid duplicates
+        const existingIndex = prev.fundSnapshots.findIndex(s => s.date === today);
+        
+        const funds = prev.investments.filter(i => i.type === 'fund' && i.unitsHeld > 0);
+        const totalCost = funds.reduce((sum, f) => sum + (f.purchasePrice * f.unitsHeld), 0);
+        const totalValue = funds.reduce((sum, f) => sum + ((f.currentPrice || f.purchasePrice) * f.unitsHeld), 0);
+
+        const newSnapshot: FundSnapshot = {
+            id: existingIndex >= 0 ? prev.fundSnapshots[existingIndex].id : Date.now().toString(),
+            date: today,
+            totalCost,
+            totalValue
+        };
+
+        let newSnapshots = [...prev.fundSnapshots];
+        if (existingIndex >= 0) {
+            newSnapshots[existingIndex] = newSnapshot;
+        } else {
+            newSnapshots.push(newSnapshot);
+        }
+
+        return { ...prev, fundSnapshots: newSnapshots };
+    });
+  };
+
+  const addTaxItem = (t: TaxReliefItem) => {
+    setData(prev => ({ ...prev, taxItems: [...prev.taxItems, t] }));
+  };
+
+  const updateTaxItem = (updatedItem: TaxReliefItem) => {
+    setData(prev => ({
+        ...prev,
+        taxItems: prev.taxItems.map(t => t.id === updatedItem.id ? updatedItem : t)
+    }));
+  };
+
+  const deleteTaxItem = (id: string) => {
+    setData(prev => ({ ...prev, taxItems: prev.taxItems.filter(t => t.id !== id) }));
+  };
+
+  const addFixedDeposit = (fd: FixedDeposit) => {
+    setData(prev => ({ ...prev, fixedDeposits: [...prev.fixedDeposits, fd] }));
+  };
+
+  const updateFixedDeposit = (updatedFD: FixedDeposit) => {
+    setData(prev => ({
+      ...prev,
+      fixedDeposits: prev.fixedDeposits.map(fd => fd.id === updatedFD.id ? updatedFD : fd)
+    }));
+  };
+
+  const deleteFixedDeposit = (id: string) => {
+    setData(prev => ({ ...prev, fixedDeposits: prev.fixedDeposits.filter(fd => fd.id !== id) }));
+  };
+
+  const importData = (jsonString: string): boolean => {
+    try {
+      const parsed = JSON.parse(jsonString);
+      // Basic validation
+      if (parsed.transactions && parsed.investments) {
+        // Migration safety
+        if (parsed.parentLogs) {
+            parsed.parentLogs = parsed.parentLogs.map((log: any) => ({
+                ...log,
+                contributionDetails: log.contributionDetails || [],
+                expenseDetails: log.expenseDetails || (log.expenses > 0 ? [{ id: 'legacy', category: 'Others', amount: log.expenses, notes: 'Legacy Migration' }] : []),
+                bbfNotes: log.bbfNotes || (log.bbfNote ? { "General Balance": log.bbfNote } : {})
+            }));
+        }
+        if (!parsed.sales) parsed.sales = [];
+        if (!parsed.fixedDeposits) parsed.fixedDeposits = [];
+        if (!parsed.fundSnapshots) parsed.fundSnapshots = [];
+        
+        setData(parsed);
+        return true;
+      }
+      return false;
+    } catch (e) {
+      return false;
+    }
+  };
+
+  const exportDataJSON = () => JSON.stringify(data, null, 2);
+
+  const exportDataCSV = (module: 'expenses' | 'parent' | 'investments' | 'tax' | 'fd' | 'fund_history'): string => {
+    let header = "";
+    let rows: string[] = [];
+
+    if (module === 'expenses') {
+      header = "Date,Description,Category,Type,Amount,TaxRelief,Receipt,EInvoice";
+      rows = data.transactions.map(t => 
+        `${t.date},"${t.description}",${t.category},${t.type},${t.amount},${t.isTaxRelief ? 'Yes' : 'No'},"${t.receiptNumber || ''}",${t.hasEInvoice ? 'Yes' : 'No'}`
+      );
+    } else if (module === 'parent') {
+      header = "Month,BalanceNotes,TotalContributions,Details,TotalExpenses,ExpenseDetails,Notes";
+      rows = data.parentLogs.map(p => {
+          const contribs = p.contributionDetails ? p.contributionDetails.map(d => `[${d.date || 'ND'}] ${d.name} (${d.source || 'N/A'}):${d.amount}`).join(';') : '';
+          const expenses = p.expenseDetails ? p.expenseDetails.map(d => `[${d.date || 'ND'}] ${d.category} (PaidFrom: ${d.deductFrom || 'Gen'}; Shared: ${d.sharedWith || 'No'}; ShareOnly?: ${d.deductShareOnly}):${d.amount}`).join(';') : '';
+          const bbfNotesStr = p.bbfNotes ? Object.entries(p.bbfNotes).map(([k,v]) => `${k}:${v}`).join('|') : '';
+          return `${p.monthStr},"${bbfNotesStr}",${p.contributions},"${contribs}",${p.expenses},"${expenses}","${p.notes}"`
+      });
+    } else if (module === 'investments') {
+      header = "RecordType,Name,Symbol,Agent,Date,Units,Price,Amount,Notes";
+      
+      const portfolioRows = data.investments.map(i => 
+        `HOLDING,"${i.name}",${i.symbol},${i.agent},${i.purchaseDate},${i.unitsHeld},${i.purchasePrice},${(i.unitsHeld * i.purchasePrice).toFixed(2)},"CurrentPrice: ${i.currentPrice || 0}"`
+      );
+
+      const saleRows = data.sales.map(s => 
+        `SALE,"${s.itemName}",,${s.agent},${s.date},${s.unitsSold},${s.pricePerUnit},${s.totalAmount.toFixed(2)},`
+      );
+
+      const divRows = data.dividends.map(d => {
+          const inv = data.investments.find(i => i.id === d.investmentId);
+          return `DIVIDEND,"${inv?.name || 'Unknown'}",${inv?.symbol || ''},${inv?.agent || ''},${d.date},${d.unitsHeldSnapshot},,${d.amount.toFixed(2)},"${d.notes || ''}"`
+      });
+
+      rows = [...portfolioRows, ...saleRows, ...divRows];
+
+    } else if (module === 'tax') {
+      header = "Year,Category,Description,Date,Amount,Receipt,EInvoice,Source";
+      rows = data.taxItems.map(t => 
+        `${t.year},${t.category},"${t.description}",${t.date},${t.amount},${t.receiptNumber || ''},${t.hasEInvoice},Manual`
+      );
+      // Append synced tax items from transactions
+      const syncedRows = data.transactions
+        .filter(t => t.isTaxRelief)
+        .map(t => {
+           const year = t.date.split('-')[0];
+           return `${year},${t.category},"${t.description}",${t.date},${t.amount},"${t.receiptNumber || ''}",${t.hasEInvoice ? 'Yes' : 'No'},Expenses`;
+        });
+      rows = [...rows, ...syncedRows];
+    } else if (module === 'fd') {
+      header = "Bank,SlipNumber,StartDate,MaturityDate,Rate,Principal,Remarks";
+      rows = data.fixedDeposits.map(fd => 
+        `"${fd.bank}","${fd.slipNumber}",${fd.startDate},${fd.endDate},${fd.rate},${fd.principal},"${fd.remarks || ''}"`
+      );
+    } else if (module === 'fund_history') {
+      header = "Date,TotalCost,TotalValue";
+      rows = data.fundSnapshots.map(s => 
+        `${s.date},${s.totalCost.toFixed(2)},${s.totalValue.toFixed(2)}`
+      );
+    }
+
+    return [header, ...rows].join("\n");
+  };
+
+  return (
+    <AppContext.Provider value={{ 
+      data, addTransaction, updateTransaction, deleteTransaction, updateParentLog, 
+      addInvestment, updateInvestment, recordInvestmentSale, updateInvestmentPrice, addDividend, 
+      captureFundSnapshot,
+      addTaxItem, updateTaxItem, deleteTaxItem, 
+      addFixedDeposit, updateFixedDeposit, deleteFixedDeposit,
+      importData, exportDataJSON, exportDataCSV 
+    }}>
+      {children}
+    </AppContext.Provider>
+  );
+};
+
+export const useApp = () => {
+  const context = useContext(AppContext);
+  if (!context) throw new Error("useApp must be used within AppProvider");
+  return context;
+};
