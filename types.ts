@@ -208,9 +208,9 @@ export const PREDEFINED_STOCKS = [
 ];
 
 export const PREDEFINED_FUNDS = [
-  { name: "Principal Greater China Equity Fund (Class MYR)", symbol: "PGC-MYR" },
-  { name: "Public Islamic Asia Tactical Allocation Fund", symbol: "PIATAF" },
-  { name: "Public Select Treasures Equity Fund", symbol: "PSTEF" },
-  { name: "Eastspring Investments Small-cap Fund", symbol: "EISCF" },
-  { name: "Public Retirement Scheme", symbol: "PRS" }
+  { name: "Public China Access Equity Fund", symbol: "093624284" },
+  { name: "Public Islamic Opportunities Fund", symbol: "093624161" },
+  { name: "Public Islamic Asia Tactical Allocation Fund", symbol: "093980865" },
+  { name: "Public Select Treasures Equity Fund", symbol: "093980844" },
+  { name: "Public Mutual PRS Equity Fund", symbol: "04845715" }
 ];

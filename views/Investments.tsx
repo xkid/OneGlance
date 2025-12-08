@@ -378,7 +378,7 @@ export const InvestmentsView: React.FC = () => {
                          {activeTab === 'fund' && showAddModal ? (
                              <Input 
                                 type="number" 
-                                label="Total Amount Spent" 
+                                label="Total Amount Paid" 
                                 value={fundTotalSpend} 
                                 onChange={e => setFundTotalSpend(e.target.value)}
                                 placeholder="Total MYR"
