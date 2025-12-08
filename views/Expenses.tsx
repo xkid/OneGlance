@@ -4,7 +4,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from '../types';
 import { Card, Button, Input, Select, Badge } from '../components/Shared';
-import { Plus, Trash2, AlertTriangle, Download, ChevronLeft, ChevronRight, CheckSquare, Calendar, Settings, FileText } from 'lucide-react';
+import { Plus, Trash2, AlertTriangle, Download, ChevronLeft, ChevronRight, CheckSquare, Calendar, Settings, FileText, ChevronDown } from 'lucide-react';
 
 export const ExpensesView: React.FC = () => {
   const { data, addTransaction, deleteTransaction, exportDataCSV } = useApp();
@@ -133,6 +133,13 @@ export const ExpensesView: React.FC = () => {
 
   const categoryOptions = type === 'expense' ? EXPENSE_CATEGORIES : INCOME_CATEGORIES;
 
+  // Dropdown Helpers
+  const [selectedYearStr, selectedMonthStr] = viewMonth.split('-');
+  const MONTH_NAMES = [
+      "January", "February", "March", "April", "May", "June", 
+      "July", "August", "September", "October", "November", "December"
+  ];
+
   return (
     <div className="space-y-6 pb-24">
       <div className="flex justify-between items-center">
@@ -166,16 +173,43 @@ export const ExpensesView: React.FC = () => {
 
         {cycleMode === 'fiscal' ? (
             <div className="flex items-center justify-between bg-gray-50 rounded-lg p-1 gap-2">
-                <button onClick={() => changeViewMonth(-1)} className="p-2 hover:bg-white rounded-md text-gray-500"><ChevronLeft size={20}/></button>
-                <div className="flex-1">
-                     <input 
-                        type="month" 
-                        value={viewMonth}
-                        onChange={(e) => setViewMonth(e.target.value)}
-                        className="w-full bg-transparent text-center font-bold text-gray-800 focus:outline-none cursor-pointer"
-                     />
+                <button onClick={() => changeViewMonth(-1)} className="p-2 hover:bg-white rounded-md text-gray-500 flex-shrink-0"><ChevronLeft size={20}/></button>
+                
+                {/* Dropdowns for Month and Year */}
+                <div className="flex gap-2 flex-1 justify-center">
+                    <div className="relative flex-1 max-w-[140px]">
+                        <select 
+                            value={selectedMonthStr} 
+                            onChange={e => setViewMonth(`${selectedYearStr}-${e.target.value}`)}
+                            className="w-full appearance-none bg-transparent text-gray-800 font-bold text-sm py-2 pl-2 pr-6 text-center focus:outline-none cursor-pointer"
+                        >
+                            {MONTH_NAMES.map((m, i) => {
+                                const val = (i + 1).toString().padStart(2, '0');
+                                return <option key={val} value={val}>{m}</option>
+                            })}
+                        </select>
+                         <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center text-gray-500">
+                            <ChevronDown size={12}/>
+                        </div>
+                    </div>
+                    <div className="relative w-20">
+                         <select 
+                            value={selectedYearStr} 
+                            onChange={e => setViewMonth(`${e.target.value}-${selectedMonthStr}`)}
+                            className="w-full appearance-none bg-transparent text-gray-800 font-bold text-sm py-2 pl-2 pr-6 text-center focus:outline-none cursor-pointer"
+                        >
+                            {Array.from({length: 10}, (_, i) => {
+                                const y = new Date().getFullYear() - 2 + i;
+                                return <option key={y} value={y}>{y}</option>
+                            })}
+                        </select>
+                         <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center text-gray-500">
+                            <ChevronDown size={12}/>
+                        </div>
+                    </div>
                 </div>
-                <button onClick={() => changeViewMonth(1)} className="p-2 hover:bg-white rounded-md text-gray-500"><ChevronRight size={20}/></button>
+
+                <button onClick={() => changeViewMonth(1)} className="p-2 hover:bg-white rounded-md text-gray-500 flex-shrink-0"><ChevronRight size={20}/></button>
             </div>
         ) : (
             <div className="grid grid-cols-2 gap-2">
