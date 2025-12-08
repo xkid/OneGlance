@@ -1,6 +1,3 @@
-// Fixed "Cannot find type definition file for 'vite/client'" by removing the reference.
-// Fixed "Cannot redeclare block-scoped variable 'process'" by using interface augmentation.
-
 export {};
 
 declare global {
