@@ -302,7 +302,8 @@ export const StatsView: React.FC = () => {
       // Initialize monthly buckets
       const buckets = Array.from({length: 12}, (_, i) => {
           const month = (i + 1).toString().padStart(2, '0');
-          const d = { name: new Date(selectedSalaryYear, i, 1).toLocaleDateString('default', {month:'short'}) };
+          // Cast to Record<string, any> to allow dynamic access via string keys
+          const d: Record<string, any> = { name: new Date(selectedSalaryYear, i, 1).toLocaleDateString('default', {month:'short'}) };
           incomeCategoriesToTrack.forEach(cat => d[cat] = 0);
           return d;
       });
@@ -325,7 +326,8 @@ export const StatsView: React.FC = () => {
       const deductionCategories = ["GESOP", "EPF EE", "EIS EE", "EIS", "SOCSO", "EPF ER", "EIS ER"];
 
       const buckets = Array.from({length: 12}, (_, i) => {
-          const d = { name: new Date(selectedSalaryYear, i, 1).toLocaleDateString('default', {month:'short'}) };
+          // Cast to Record<string, any> to allow dynamic access via string keys
+          const d: Record<string, any> = { name: new Date(selectedSalaryYear, i, 1).toLocaleDateString('default', {month:'short'}) };
           deductionCategories.forEach(cat => d[cat] = 0);
           return d;
       });
