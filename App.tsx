@@ -7,11 +7,10 @@ import { InvestmentsView } from './views/Investments';
 import { TaxView } from './views/Tax';
 import { StatsView } from './views/Stats';
 import { FixedDepositView } from './views/FixedDeposit';
-import { SalaryView } from './views/Salary';
-import { Wallet, Heart, TrendingUp, FileText, PieChart, Landmark, Banknote } from 'lucide-react';
+import { Wallet, Heart, TrendingUp, FileText, PieChart, Landmark } from 'lucide-react';
 
 const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'expenses' | 'parent' | 'invest' | 'fd' | 'salary' | 'tax' | 'stats'>('expenses');
+  const [activeTab, setActiveTab] = useState<'expenses' | 'parent' | 'invest' | 'fd' | 'tax' | 'stats'>('expenses');
 
   // iOS Icon Fix: Generates multiple PNG sizes from SVG client-side for "Add to Home Screen" support
   useEffect(() => {
@@ -91,7 +90,6 @@ const App: React.FC = () => {
       case 'parent': return <ParentCareView />;
       case 'invest': return <InvestmentsView />;
       case 'fd': return <FixedDepositView />;
-      case 'salary': return <SalaryView />;
       case 'tax': return <TaxView />;
       case 'stats': return <StatsView />;
       default: return <ExpensesView />;
@@ -138,12 +136,6 @@ const App: React.FC = () => {
                 onClick={() => setActiveTab('fd')} 
                 icon={<Landmark size={24} />} 
                 label="FD" 
-              />
-              <NavBtn 
-                active={activeTab === 'salary'} 
-                onClick={() => setActiveTab('salary')} 
-                icon={<Banknote size={24} />} 
-                label="Salary" 
               />
               <NavBtn 
                 active={activeTab === 'tax'} 

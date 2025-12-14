@@ -301,7 +301,6 @@ export const StatsView: React.FC = () => {
 
       // Initialize monthly buckets
       const buckets = Array.from({length: 12}, (_, i) => {
-          const month = (i + 1).toString().padStart(2, '0');
           // Explicitly type accumulator
           const d: Record<string, any> = { name: new Date(selectedSalaryYear, i, 1).toLocaleDateString('default', {month:'short'}) };
           incomeCategoriesToTrack.forEach(cat => d[cat] = 0);
@@ -323,7 +322,8 @@ export const StatsView: React.FC = () => {
   // 7. SALARY DEDUCTIONS STATS (From Transactions)
   const deductionBreakdownData = useMemo(() => {
       const yearPrefix = selectedSalaryYear.toString();
-      const deductionCategories = ["GESOP", "EPF EE", "EIS EE", "EIS", "SOCSO", "EPF ER", "EIS ER"];
+      // REMOVED EPF ER and EIS ER from deductions as requested
+      const deductionCategories = ["GESOP", "EPF EE", "EIS EE", "SOCSO"];
 
       const buckets = Array.from({length: 12}, (_, i) => {
           // Explicitly type accumulator
@@ -339,6 +339,26 @@ export const StatsView: React.FC = () => {
             buckets[monthIdx][t.category] += t.amount;
         });
 
+      return buckets;
+  }, [data.transactions, selectedSalaryYear]);
+
+  // 8. NEW: EPF ER TRACKER (Moved to Income side as recording item)
+  const epfErTrackerData = useMemo(() => {
+      const yearPrefix = selectedSalaryYear.toString();
+      const buckets = Array.from({length: 12}, (_, i) => {
+          return { 
+              name: new Date(selectedSalaryYear, i, 1).toLocaleDateString('default', {month:'short'}),
+              Amount: 0 
+          };
+      });
+
+      data.transactions
+        .filter(t => t.date.startsWith(yearPrefix) && t.category === "EPF ER")
+        .forEach(t => {
+            const monthIdx = parseInt(t.date.split('-')[1]) - 1;
+            buckets[monthIdx].Amount += t.amount;
+        });
+      
       return buckets;
   }, [data.transactions, selectedSalaryYear]);
 
@@ -498,8 +518,8 @@ export const StatsView: React.FC = () => {
                     </div>
                 </Card>
 
-                <Card title="Recorded Deductions Breakdown">
-                     <p className="text-xs text-gray-400 mb-2">Employee & Employer Contributions</p>
+                <Card title="Deductions Breakdown">
+                     <p className="text-xs text-gray-400 mb-2">Employee Contributions (Minus Employer Share)</p>
                      <div className="h-[350px] w-full">
                         <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={deductionBreakdownData} margin={{ top: 5, right: 0, left: -20, bottom: 5 }}>
@@ -508,10 +528,23 @@ export const StatsView: React.FC = () => {
                                 <Tooltip cursor={{fill: '#f3f4f6'}} />
                                 <Legend wrapperStyle={{fontSize: '10px'}} />
                                 <Bar dataKey="EPF EE" stackId="a" fill="#007AFF" />
-                                <Bar dataKey="EPF ER" stackId="a" fill="#5AC8FA" />
                                 <Bar dataKey="SOCSO" stackId="a" fill="#FF9500" />
-                                <Bar dataKey="EIS" stackId="a" fill="#FF3B30" />
+                                <Bar dataKey="EIS EE" stackId="a" fill="#FF3B30" />
                                 <Bar dataKey="GESOP" stackId="a" fill="#AF52DE" />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+                </Card>
+
+                <Card title="Employer EPF Contribution (EPF ER)">
+                    <p className="text-xs text-gray-400 mb-2">Recorded purely for tracking purposes.</p>
+                    <div className="h-[250px] w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={epfErTrackerData}>
+                                <XAxis dataKey="name" fontSize={10} tickLine={false} axisLine={false}/>
+                                <YAxis fontSize={10} tickLine={false} axisLine={false}/>
+                                <Tooltip cursor={{fill: '#f3f4f6'}} />
+                                <Bar dataKey="Amount" fill="#5AC8FA" radius={[4, 4, 0, 0]} />
                             </BarChart>
                         </ResponsiveContainer>
                     </div>

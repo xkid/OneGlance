@@ -1,5 +1,4 @@
 
-
 export type TransactionType = 'income' | 'expense';
 
 export interface Transaction {
@@ -173,7 +172,9 @@ export const INCOME_CATEGORIES = [
   "Mobile phone allowances",
   "Transportation allowance",
   "Flexible wellness allowances",
-  "Spot bonus/bonus"
+  "Spot bonus/bonus",
+  "EPF ER", // Moved from Expenses
+  "EIS ER"  // Moved from Expenses
 ];
 
 // All available expense categories (used for Transactions)
@@ -209,10 +210,8 @@ export const EXPENSE_CATEGORIES = [
   "GESOP",
   "EPF EE",
   "EIS EE",
-  "EIS",
-  "SOCSO",
-  "EPF ER",
-  "EIS ER"
+  "SOCSO"
+  // Removed EIS, EPF ER, EIS ER
 ];
 
 // Categories that do not affect the actual wallet balance (Info Only)
@@ -223,14 +222,13 @@ export const EXCLUDED_FROM_BALANCE_CATEGORIES = [
   "Transportation allowance",
   "Flexible wellness allowances",
   "Spot bonus/bonus",
+  "EPF ER",
+  "EIS ER",
   // Expenses
   "GESOP",
   "EPF EE",
   "EIS EE",
-  "EIS",
-  "SOCSO",
-  "EPF ER",
-  "EIS ER"
+  "SOCSO"
 ];
 
 // Strictly Eligible Tax Relief Categories (Used for Tax Module Dropdown)

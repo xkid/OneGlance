@@ -1,5 +1,4 @@
 
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { SIBLINGS, ContributionDetail, PARENT_EXPENSE_CATEGORIES, ParentExpenseDetail, SHARERS_LIST } from '../types';
@@ -13,8 +12,10 @@ export const ParentCareView: React.FC = () => {
   // Expense Form State
   const [expenseDate, setExpenseDate] = useState(new Date().toISOString().split('T')[0]);
   const [expenseCategory, setExpenseCategory] = useState(PARENT_EXPENSE_CATEGORIES[0]);
+  const [customExpenseCategory, setCustomExpenseCategory] = useState(''); // Free text for 'Others'
   const [expenseAmount, setExpenseAmount] = useState('');
   const [expenseNotes, setExpenseNotes] = useState('');
+  const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null);
   
   // Shared With Checkbox Logic
   const [selectedSharers, setSelectedSharers] = useState<string[]>([]);
@@ -30,6 +31,7 @@ export const ParentCareView: React.FC = () => {
   const [addSibName, setAddSibName] = useState('');
   const [addSibSource, setAddSibSource] = useState('');
   const [addSibAmount, setAddSibAmount] = useState('');
+  const [editingContribId, setEditingContribId] = useState<string | null>(null);
   
   // Balance View State
   const [isEditingBbfNote, setIsEditingBbfNote] = useState(false);
@@ -58,7 +60,27 @@ export const ParentCareView: React.FC = () => {
     // Reset dates to today
     setContribDate(new Date().toISOString().split('T')[0]);
     setExpenseDate(new Date().toISOString().split('T')[0]);
+    resetExpenseForm();
+    resetContribForm();
   }, [currentLog, selectedMonth]);
+
+  const resetExpenseForm = () => {
+      setExpenseAmount('');
+      setExpenseNotes('');
+      setExpenseCategory(PARENT_EXPENSE_CATEGORIES[0]);
+      setCustomExpenseCategory('');
+      setSelectedSharers([]);
+      setCustomSharers([]);
+      setDeductShareOnly(false);
+      setEditingExpenseId(null);
+  };
+
+  const resetContribForm = () => {
+      setAddSibAmount('');
+      setAddSibName('');
+      setAddSibSource('');
+      setEditingContribId(null);
+  };
 
   // Derive unique sources for dropdown (used for both Deduct From and Filter)
   const availableAccounts = useMemo(() => {
@@ -166,22 +188,35 @@ export const ParentCareView: React.FC = () => {
   };
 
   // --- Contribution Handlers ---
-  const handleAddContribution = () => {
+  const handleSaveContribution = () => {
       if (!addSibAmount || !addSibName) return;
-      const newItem: ContributionDetail = {
-          id: Date.now().toString(),
+      
+      const item: ContributionDetail = {
+          id: editingContribId || Date.now().toString(),
           date: contribDate,
           name: addSibName,
           amount: parseFloat(addSibAmount),
           source: addSibSource || 'General Balance'
       };
-      const newContribs = [...tempContributions, newItem];
+
+      let newContribs;
+      if (editingContribId) {
+          newContribs = tempContributions.map(c => c.id === editingContribId ? item : c);
+      } else {
+          newContribs = [...tempContributions, item];
+      }
+
       setTempContributions(newContribs);
-      setAddSibAmount('');
-      setAddSibName('');
-      // Keep source? or reset. Reset seems safer.
-      setAddSibSource('');
+      resetContribForm();
       saveChanges(newContribs, tempExpenses, bbfNotesMap);
+  };
+
+  const handleEditContribution = (c: ContributionDetail) => {
+      setAddSibName(c.name);
+      setAddSibAmount(c.amount.toString());
+      setAddSibSource(c.source || 'General Balance');
+      setContribDate(c.date || selectedMonth + '-01');
+      setEditingContribId(c.id);
   };
 
   const handleRemoveContribution = (id: string) => {
@@ -218,18 +253,23 @@ export const ParentCareView: React.FC = () => {
       setCustomSharers(prev => prev.filter((_, i) => i !== idx));
   };
 
-  const handleAddExpense = () => {
+  const handleSaveExpense = () => {
       if (!expenseAmount) return;
       
       const finalSharers = [...selectedSharers, ...customSharers];
       const sharerString = finalSharers.join(', ');
 
       const amountVal = parseFloat(expenseAmount);
+      
+      // Determine final category (Preset or Free Text)
+      const finalCategory = expenseCategory === 'Others' && customExpenseCategory.trim() 
+          ? customExpenseCategory.trim() 
+          : expenseCategory;
 
-      const newItem: ParentExpenseDetail = {
-          id: Date.now().toString(),
+      const item: ParentExpenseDetail = {
+          id: editingExpenseId || Date.now().toString(),
           date: expenseDate,
-          category: expenseCategory,
+          category: finalCategory,
           amount: amountVal,
           notes: expenseNotes,
           sharedWith: sharerString,
@@ -238,14 +278,14 @@ export const ParentCareView: React.FC = () => {
           deductShareOnly: deductShareOnly
       };
 
-      // SYNC TO EXPENSES MODULE (Module 1)
-      if (selectedSharers.includes("Sau Lai")) {
+      // SYNC TO EXPENSES MODULE (Module 1) - Only on create for now to avoid complexity of update sync
+      if (!editingExpenseId && selectedSharers.includes("Sau Lai")) {
            // Calculate share amount
            const shareAmt = amountVal / paxCount;
            addTransaction({
                id: 'sync-' + Date.now().toString(),
                date: expenseDate,
-               description: `Parent Care: ${expenseCategory}`,
+               description: `Parent Care: ${finalCategory}`,
                amount: parseFloat(shareAmt.toFixed(2)),
                category: 'Parent care',
                type: 'expense',
@@ -253,18 +293,43 @@ export const ParentCareView: React.FC = () => {
            });
       }
 
-      const newExpenses = [...tempExpenses, newItem];
+      let newExpenses;
+      if (editingExpenseId) {
+          newExpenses = tempExpenses.map(e => e.id === editingExpenseId ? item : e);
+      } else {
+          newExpenses = [...tempExpenses, item];
+      }
+
       setTempExpenses(newExpenses);
-      
-      // Reset form fields
-      setExpenseAmount('');
-      setExpenseNotes('');
-      // Reset sharers
-      setSelectedSharers([]);
-      setCustomSharers([]);
-      setDeductShareOnly(false);
-      
+      resetExpenseForm();
       saveChanges(tempContributions, newExpenses, bbfNotesMap);
+  };
+
+  const handleEditExpense = (e: ParentExpenseDetail) => {
+      // Check if category is in standard list
+      if (PARENT_EXPENSE_CATEGORIES.includes(e.category)) {
+          setExpenseCategory(e.category);
+          setCustomExpenseCategory('');
+      } else {
+          setExpenseCategory('Others');
+          setCustomExpenseCategory(e.category);
+      }
+
+      setExpenseDate(e.date || selectedMonth + '-01');
+      setExpenseAmount(e.amount.toString());
+      setExpenseNotes(e.notes || '');
+      setDeductFrom(e.deductFrom || 'General Balance');
+      setDeductShareOnly(e.deductShareOnly || false);
+      
+      // Parse Sharers
+      const sharerArr = e.sharedWith ? e.sharedWith.split(', ').filter(Boolean) : [];
+      const standardSharers = sharerArr.filter(s => SHARERS_LIST.includes(s));
+      const customSharersFound = sharerArr.filter(s => !SHARERS_LIST.includes(s));
+      
+      setSelectedSharers(standardSharers);
+      setCustomSharers(customSharersFound);
+      
+      setEditingExpenseId(e.id);
   };
 
   const handleRemoveExpense = (id: string) => {
@@ -390,8 +455,8 @@ export const ParentCareView: React.FC = () => {
       </Card>
 
       {/* CONTRIBUTIONS SECTION */}
-      <Card title="Funds In / Contributions">
-         <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 mb-4 space-y-2">
+      <Card title={editingContribId ? "Edit Contribution" : "Funds In / Contributions"}>
+         <div className={`bg-gray-50 p-4 rounded-xl border ${editingContribId ? 'border-blue-200 ring-1 ring-blue-100' : 'border-gray-100'} mb-4 space-y-2 transition-all`}>
              <div className="flex items-center justify-between mb-1">
                  <label className="text-[10px] font-semibold text-gray-400 uppercase">Date</label>
                  <input type="date" value={contribDate} onChange={e => setContribDate(e.target.value)} className="text-xs bg-transparent focus:outline-none text-right"/>
@@ -434,9 +499,16 @@ export const ParentCareView: React.FC = () => {
                          {availableAccounts.map(a => <option key={a} value={a} />)}
                      </datalist>
                  </div>
-                 <button onClick={handleAddContribution} className="bg-green-500 hover:bg-green-600 text-white p-2 rounded-lg shadow-sm transition-colors">
-                     <Plus size={20}/>
-                 </button>
+                 {editingContribId ? (
+                     <div className="flex gap-1">
+                         <button onClick={handleSaveContribution} className="bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-lg shadow-sm"><Save size={20}/></button>
+                         <button onClick={resetContribForm} className="bg-gray-200 hover:bg-gray-300 text-gray-600 p-2 rounded-lg"><X size={20}/></button>
+                     </div>
+                 ) : (
+                     <button onClick={handleSaveContribution} className="bg-green-500 hover:bg-green-600 text-white p-2 rounded-lg shadow-sm transition-colors">
+                         <Plus size={20}/>
+                     </button>
+                 )}
              </div>
          </div>
 
@@ -452,6 +524,7 @@ export const ParentCareView: React.FC = () => {
                      </div>
                      <div className="flex items-center gap-3">
                          <span className="font-bold text-green-600">+{c.amount.toFixed(2)}</span>
+                         <button onClick={() => handleEditContribution(c)} className="text-gray-300 hover:text-blue-500 transition-colors"><Edit2 size={16}/></button>
                          <button onClick={() => handleRemoveContribution(c.id)} className="text-gray-300 hover:text-red-500 transition-colors"><Trash2 size={16}/></button>
                      </div>
                  </div>
@@ -460,8 +533,8 @@ export const ParentCareView: React.FC = () => {
       </Card>
 
       {/* EXPENSES SECTION */}
-      <Card title="Expenses / Deductions">
-          <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 mb-4 space-y-3">
+      <Card title={editingExpenseId ? "Edit Expense" : "Expenses / Deductions"}>
+          <div className={`bg-gray-50 p-4 rounded-xl border ${editingExpenseId ? 'border-blue-200 ring-1 ring-blue-100' : 'border-gray-100'} mb-4 space-y-3 transition-all`}>
                <div className="flex items-center justify-between">
                    <label className="text-[10px] font-semibold text-gray-400 uppercase">Expense Date</label>
                    <input type="date" value={expenseDate} onChange={e => setExpenseDate(e.target.value)} className="text-xs bg-transparent focus:outline-none text-right"/>
@@ -486,6 +559,19 @@ export const ParentCareView: React.FC = () => {
                         />
                    </div>
                </div>
+
+               {/* Conditional Free Text Input for 'Others' */}
+               {expenseCategory === 'Others' && (
+                   <div className="animate-fadeIn">
+                       <label className="block text-[10px] font-semibold text-blue-500 uppercase tracking-wider mb-1">Specify Details</label>
+                       <Input 
+                           value={customExpenseCategory}
+                           onChange={e => setCustomExpenseCategory(e.target.value)}
+                           placeholder="e.g. Plumber repair"
+                           className="mb-0 border-blue-200 focus:border-blue-400"
+                       />
+                   </div>
+               )}
                
                {/* Shared Expense Inputs Checkboxes */}
                <div className="bg-white p-3 rounded-lg border border-gray-200">
@@ -523,7 +609,7 @@ export const ParentCareView: React.FC = () => {
                         </div>
                     </div>
 
-                    {selectedSharers.includes("Sau Lai") && (
+                    {!editingExpenseId && selectedSharers.includes("Sau Lai") && (
                          <p className="text-[10px] text-blue-500 mt-2 flex items-center gap-1">
                              <Filter size={10}/> Will sync {((parseFloat(expenseAmount) || 0) / paxCount).toFixed(2)} to Expenses Module
                          </p>
@@ -572,9 +658,14 @@ export const ParentCareView: React.FC = () => {
                     placeholder="Optional remarks (e.g. November Nursing fees)"
                     className="mb-0"
                />
-               <Button onClick={handleAddExpense} className="w-full flex justify-center items-center gap-2">
-                   <Save size={18}/> Add Expense
-               </Button>
+               <div className="flex gap-2">
+                   {editingExpenseId && (
+                       <Button variant="secondary" onClick={resetExpenseForm} className="flex-1">Cancel</Button>
+                   )}
+                   <Button onClick={handleSaveExpense} className="flex-1 flex justify-center items-center gap-2">
+                       <Save size={18}/> {editingExpenseId ? "Update Expense" : "Add Expense"}
+                   </Button>
+               </div>
           </div>
 
           <div className="space-y-2">
@@ -607,7 +698,10 @@ export const ParentCareView: React.FC = () => {
                                    {e.shareCount && e.shareCount > 1 && (
                                        <span className="text-[10px] text-gray-400 block">({perPax.toFixed(2)} / pax)</span>
                                    )}
-                                   <button onClick={() => handleRemoveExpense(e.id)} className="text-gray-300 hover:text-red-500 mt-1"><Trash2 size={14}/></button>
+                                   <div className="flex gap-2 justify-end mt-1">
+                                       <button onClick={() => handleEditExpense(e)} className="text-gray-300 hover:text-blue-500"><Edit2 size={14}/></button>
+                                       <button onClick={() => handleRemoveExpense(e.id)} className="text-gray-300 hover:text-red-500"><Trash2 size={14}/></button>
+                                   </div>
                                </div>
                            </div>
                        </div>
