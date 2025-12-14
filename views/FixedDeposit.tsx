@@ -1,10 +1,10 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { FixedDeposit, FDMaturityLog } from '../types';
 import { Card, Button, Input, Badge } from '../components/Shared';
 import { searchFDPromotions } from '../services/geminiService';
-import { Plus, Trash2, Calendar, Download, Edit2, Search, Sparkles, X, Save, TrendingUp, DollarSign, CheckCircle, ChevronLeft, ChevronRight, RefreshCw, LogOut } from 'lucide-react';
+import { Plus, Trash2, Calendar, Download, Edit2, Search, Sparkles, X, Save, TrendingUp, DollarSign, CheckCircle, ChevronLeft, ChevronRight, RefreshCw, LogOut, ArrowRightCircle } from 'lucide-react';
 
 export const FixedDepositView: React.FC = () => {
   const { data, addFixedDeposit, updateFixedDeposit, deleteFixedDeposit, collectFixedDeposit, exportDataCSV } = useApp();
@@ -34,6 +34,7 @@ export const FixedDepositView: React.FC = () => {
   const [renewPrincipal, setRenewPrincipal] = useState('');
   const [renewRate, setRenewRate] = useState('');
   const [renewEndDate, setRenewEndDate] = useState('');
+  const [includeInterest, setIncludeInterest] = useState(false);
 
   // Promo State
   const [isSearching, setIsSearching] = useState(false);
@@ -45,6 +46,16 @@ export const FixedDepositView: React.FC = () => {
 
   // History State
   const [historyYear, setHistoryYear] = useState(new Date().getFullYear());
+
+  // --- EFFECTS ---
+  // Auto-calculate renewal principal if "Compound Interest" is checked
+  useEffect(() => {
+      if (includeInterest && collectItem && collectionAction === 'renew') {
+          const base = collectItem.principal;
+          const gain = parseFloat(finalInterest) || 0;
+          setRenewPrincipal((base + gain).toFixed(2));
+      }
+  }, [includeInterest, finalInterest, collectItem, collectionAction]);
 
   // Helpers
   const calculateMaturity = (p: number, r: number, start: string, end: string) => {
@@ -123,6 +134,8 @@ export const FixedDepositView: React.FC = () => {
       // Pre-fill renewal defaults
       setRenewPrincipal(fd.principal.toString()); // Default to same principal
       setRenewRate(fd.rate.toString()); // Default to same rate
+      setIncludeInterest(false); // Reset toggle
+
       // Default End Date: Start Date (Today) + same duration as before
       const s = new Date(fd.startDate);
       const e = new Date(fd.endDate);
@@ -166,6 +179,16 @@ export const FixedDepositView: React.FC = () => {
 
       setShowCollectModal(false);
       setCollectItem(null);
+  };
+
+  const handleIncludeInterestToggle = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const checked = e.target.checked;
+      setIncludeInterest(checked);
+      if (!checked && collectItem) {
+          // Revert to original principal immediately on uncheck
+          setRenewPrincipal(collectItem.principal.toString());
+      }
+      // If checked, the Effect will handle setting the value
   };
 
   const handleAddToCalendar = (fd: FixedDeposit) => {
@@ -572,26 +595,47 @@ export const FixedDepositView: React.FC = () => {
                       {collectionAction === 'renew' ? (
                           <div className="space-y-3 animate-fadeIn">
                               <p className="text-xs text-gray-500 font-medium">New Certificate Details</p>
-                              <div className="grid grid-cols-2 gap-3">
+                              
+                              <div className="space-y-1">
                                   <Input 
                                     label="New Principal" 
                                     type="number" 
                                     value={renewPrincipal} 
-                                    onChange={e => setRenewPrincipal(e.target.value)}
+                                    onChange={e => {
+                                        setRenewPrincipal(e.target.value);
+                                        setIncludeInterest(false); // Uncheck if manually edited
+                                    }}
+                                    className="mb-1"
                                   />
+                                  <div className="flex items-center gap-2 px-1">
+                                      <input 
+                                        type="checkbox" 
+                                        id="addInterest" 
+                                        checked={includeInterest} 
+                                        onChange={handleIncludeInterestToggle}
+                                        className="w-4 h-4 text-ios-blue rounded border-gray-300"
+                                      />
+                                      <label htmlFor="addInterest" className="text-xs text-gray-600 select-none">
+                                          Compound Interest (Add {parseFloat(finalInterest || '0').toFixed(2)} to Principal)
+                                      </label>
+                                  </div>
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-3 pt-2">
                                   <Input 
                                     label="New Rate (%)" 
                                     type="number" 
                                     value={renewRate} 
                                     onChange={e => setRenewRate(e.target.value)}
                                   />
+                                  <Input 
+                                    label="New Maturity Date" 
+                                    type="date" 
+                                    value={renewEndDate} 
+                                    onChange={e => setRenewEndDate(e.target.value)}
+                                  />
                               </div>
-                              <Input 
-                                label="New Maturity Date" 
-                                type="date" 
-                                value={renewEndDate} 
-                                onChange={e => setRenewEndDate(e.target.value)}
-                              />
+                              
                               <div className="bg-blue-50 p-2 rounded text-xs text-blue-700 flex items-start gap-2">
                                   <Calendar size={14} className="mt-0.5 flex-shrink-0"/>
                                   <span>
