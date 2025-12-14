@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { CURRENCIES, InvestmentItem } from '../types';
@@ -850,7 +851,7 @@ export const StatsView: React.FC = () => {
 
                     <Input 
                         value={resetInput} 
-                        onChange={e => setResetInput(e.target.value)} 
+                        onChange={e => setResetInput(e.target.value.toUpperCase())} 
                         placeholder="Enter code here" 
                         className="text-center font-bold tracking-widest uppercase"
                         autoFocus
