@@ -123,6 +123,17 @@ export interface FixedDeposit {
   remarks?: string;
 }
 
+export interface FDMaturityLog {
+  id: string;
+  date: string; // Date of maturity/collection
+  bank: string;
+  slipNumber: string;
+  principal: number;
+  interestEarned: number; // The dividend/interest amount
+  rateSnapshot: number; // The rate at the time
+  year: number; // For easier annual filtering
+}
+
 export interface SalaryLog {
   id: string;
   month: string; // YYYY-MM
@@ -149,6 +160,7 @@ export interface AppData {
   fundSnapshots: FundSnapshot[];
   taxItems: TaxReliefItem[];
   fixedDeposits: FixedDeposit[];
+  fdMaturityLogs: FDMaturityLog[]; // New: Log of matured FDs
   salaryLogs: SalaryLog[];
 }
 

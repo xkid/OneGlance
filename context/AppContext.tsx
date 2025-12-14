@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { AppData, Transaction, ParentCareLog, InvestmentItem, DividendLog, TaxReliefItem, SaleLog, FixedDeposit, FundSnapshot, PurchaseLog, SalaryLog } from '../types';
+import { AppData, Transaction, ParentCareLog, InvestmentItem, DividendLog, TaxReliefItem, SaleLog, FixedDeposit, FundSnapshot, PurchaseLog, SalaryLog, FDMaturityLog } from '../types';
 
 interface AppContextType {
   data: AppData;
@@ -21,23 +21,25 @@ interface AppContextType {
   addFixedDeposit: (fd: FixedDeposit) => void;
   updateFixedDeposit: (fd: FixedDeposit) => void;
   deleteFixedDeposit: (id: string) => void;
+  collectFixedDeposit: (log: FDMaturityLog, fdIdToDelete: string) => void; // New
   addSalaryLog: (s: SalaryLog) => void;
   deleteSalaryLog: (id: string) => void;
   resetData: () => void;
   importData: (jsonData: string) => boolean;
   exportDataJSON: () => string;
-  exportDataCSV: (module: 'expenses' | 'parent' | 'investments' | 'tax' | 'fd' | 'fund_history' | 'salary') => string;
+  exportDataCSV: (module: 'expenses' | 'parent' | 'investments' | 'tax' | 'fd' | 'fund_history' | 'salary' | 'fd_history') => string;
 }
 
 const defaultData: AppData = {
   transactions: [],
   parentLogs: [],
-  investments: [], // Pre-populated data removed
+  investments: [], 
   dividends: [],
   sales: [],
   fundSnapshots: [],
   taxItems: [],
   fixedDeposits: [],
+  fdMaturityLogs: [], // New
   salaryLogs: []
 };
 
@@ -62,14 +64,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 bbfNotes: log.bbfNotes || (log.bbfNote ? { "General Balance": log.bbfNote } : {})
             }));
         }
-        // Migration: Ensure sales array exists
+        // Migration: Ensure arrays exists
         if (!parsed.sales) parsed.sales = [];
-        // Migration: Ensure fixedDeposits exists
         if (!parsed.fixedDeposits) parsed.fixedDeposits = [];
-        // Migration: Ensure fundSnapshots exists
         if (!parsed.fundSnapshots) parsed.fundSnapshots = [];
-        // Migration: Ensure salaryLogs exists
         if (!parsed.salaryLogs) parsed.salaryLogs = [];
+        if (!parsed.fdMaturityLogs) parsed.fdMaturityLogs = [];
 
         setData(parsed);
       } catch (e) {
@@ -287,6 +287,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setData(prev => ({ ...prev, fixedDeposits: prev.fixedDeposits.filter(fd => fd.id !== id) }));
   };
 
+  const collectFixedDeposit = (log: FDMaturityLog, fdIdToDelete: string) => {
+      setData(prev => ({
+          ...prev,
+          fdMaturityLogs: [...(prev.fdMaturityLogs || []), log],
+          fixedDeposits: prev.fixedDeposits.filter(fd => fd.id !== fdIdToDelete)
+      }));
+  };
+
   const addSalaryLog = (s: SalaryLog) => {
       setData(prev => {
           // Check for existing log for this month? Assuming multiple allowed, or overwrite.
@@ -350,6 +358,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (!parsed.fixedDeposits) parsed.fixedDeposits = [];
         if (!parsed.fundSnapshots) parsed.fundSnapshots = [];
         if (!parsed.salaryLogs) parsed.salaryLogs = [];
+        if (!parsed.fdMaturityLogs) parsed.fdMaturityLogs = [];
         
         setData(parsed);
         return true;
@@ -362,7 +371,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const exportDataJSON = () => JSON.stringify(data, null, 2);
 
-  const exportDataCSV = (module: 'expenses' | 'parent' | 'investments' | 'tax' | 'fd' | 'fund_history' | 'salary'): string => {
+  const exportDataCSV = (module: 'expenses' | 'parent' | 'investments' | 'tax' | 'fd' | 'fund_history' | 'salary' | 'fd_history'): string => {
     let header = "";
     let rows: string[] = [];
 
@@ -420,6 +429,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       rows = data.fixedDeposits.map(fd => 
         `"${fd.bank}","${fd.slipNumber}",${fd.startDate},${fd.endDate},${fd.rate},${fd.principal},"${fd.remarks || ''}"`
       );
+    } else if (module === 'fd_history') {
+      header = "DateCollected,Bank,SlipNumber,Principal,InterestEarned,RateSnapshot,Year";
+      rows = (data.fdMaturityLogs || []).map(log => 
+        `${log.date},"${log.bank}","${log.slipNumber}",${log.principal},${log.interestEarned},${log.rateSnapshot},${log.year}`
+      );
     } else if (module === 'fund_history') {
       header = "Date,TotalCost,TotalValue";
       rows = data.fundSnapshots.map(s => 
@@ -441,7 +455,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       addInvestment, updateInvestment, deleteInvestment, recordInvestmentSale, updateInvestmentPrice, addDividend, 
       captureFundSnapshot,
       addTaxItem, updateTaxItem, deleteTaxItem, 
-      addFixedDeposit, updateFixedDeposit, deleteFixedDeposit,
+      addFixedDeposit, updateFixedDeposit, deleteFixedDeposit, collectFixedDeposit,
       addSalaryLog, deleteSalaryLog,
       resetData,
       importData, exportDataJSON, exportDataCSV 
