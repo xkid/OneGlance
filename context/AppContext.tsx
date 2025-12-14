@@ -21,7 +21,7 @@ interface AppContextType {
   addFixedDeposit: (fd: FixedDeposit) => void;
   updateFixedDeposit: (fd: FixedDeposit) => void;
   deleteFixedDeposit: (id: string) => void;
-  collectFixedDeposit: (log: FDMaturityLog, fdIdToDelete: string) => void; // New
+  collectFixedDeposit: (log: FDMaturityLog, action: 'withdraw' | 'renew', payload?: string | FixedDeposit) => void; // Updated signature
   addSalaryLog: (s: SalaryLog) => void;
   deleteSalaryLog: (id: string) => void;
   resetData: () => void;
@@ -287,12 +287,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setData(prev => ({ ...prev, fixedDeposits: prev.fixedDeposits.filter(fd => fd.id !== id) }));
   };
 
-  const collectFixedDeposit = (log: FDMaturityLog, fdIdToDelete: string) => {
-      setData(prev => ({
-          ...prev,
-          fdMaturityLogs: [...(prev.fdMaturityLogs || []), log],
-          fixedDeposits: prev.fixedDeposits.filter(fd => fd.id !== fdIdToDelete)
-      }));
+  const collectFixedDeposit = (log: FDMaturityLog, action: 'withdraw' | 'renew', payload?: string | FixedDeposit) => {
+      setData(prev => {
+          const newLogs = [...(prev.fdMaturityLogs || []), log];
+          let newFDs = prev.fixedDeposits;
+
+          if (action === 'withdraw' && typeof payload === 'string') {
+              newFDs = newFDs.filter(fd => fd.id !== payload);
+          } else if (action === 'renew' && typeof payload === 'object' && payload !== null) {
+              const updatedFD = payload as FixedDeposit;
+              newFDs = newFDs.map(fd => fd.id === updatedFD.id ? updatedFD : fd);
+          }
+
+          return {
+              ...prev,
+              fdMaturityLogs: newLogs,
+              fixedDeposits: newFDs
+          };
+      });
   };
 
   const addSalaryLog = (s: SalaryLog) => {

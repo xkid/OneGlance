@@ -4,7 +4,7 @@ import { useApp } from '../context/AppContext';
 import { FixedDeposit, FDMaturityLog } from '../types';
 import { Card, Button, Input, Badge } from '../components/Shared';
 import { searchFDPromotions } from '../services/geminiService';
-import { Plus, Trash2, Calendar, Download, Edit2, Search, Sparkles, X, Save, TrendingUp, DollarSign, CheckCircle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Trash2, Calendar, Download, Edit2, Search, Sparkles, X, Save, TrendingUp, DollarSign, CheckCircle, ChevronLeft, ChevronRight, RefreshCw, LogOut } from 'lucide-react';
 
 export const FixedDepositView: React.FC = () => {
   const { data, addFixedDeposit, updateFixedDeposit, deleteFixedDeposit, collectFixedDeposit, exportDataCSV } = useApp();
@@ -28,6 +28,12 @@ export const FixedDepositView: React.FC = () => {
   const [collectItem, setCollectItem] = useState<FixedDeposit | null>(null);
   const [collectDate, setCollectDate] = useState(new Date().toISOString().split('T')[0]);
   const [finalInterest, setFinalInterest] = useState('');
+  
+  // Renewal State
+  const [collectionAction, setCollectionAction] = useState<'withdraw' | 'renew'>('renew');
+  const [renewPrincipal, setRenewPrincipal] = useState('');
+  const [renewRate, setRenewRate] = useState('');
+  const [renewEndDate, setRenewEndDate] = useState('');
 
   // Promo State
   const [isSearching, setIsSearching] = useState(false);
@@ -107,14 +113,30 @@ export const FixedDepositView: React.FC = () => {
   const initiateCollection = (fd: FixedDeposit) => {
       setCollectItem(fd);
       const projected = calculateProjectedInterest(fd.principal, fd.rate, fd.startDate, fd.endDate);
+      const today = new Date().toISOString().split('T')[0];
+      
+      // Default to Renewal
+      setCollectionAction('renew');
       setFinalInterest(projected.toFixed(2));
-      setCollectDate(new Date().toISOString().split('T')[0]);
+      setCollectDate(today);
+      
+      // Pre-fill renewal defaults
+      setRenewPrincipal(fd.principal.toString()); // Default to same principal
+      setRenewRate(fd.rate.toString()); // Default to same rate
+      // Default End Date: Start Date (Today) + same duration as before
+      const s = new Date(fd.startDate);
+      const e = new Date(fd.endDate);
+      const diffTime = Math.abs(e.getTime() - s.getTime());
+      const newEnd = new Date(new Date(today).getTime() + diffTime);
+      setRenewEndDate(newEnd.toISOString().split('T')[0]);
+
       setShowCollectModal(true);
   };
 
   const confirmCollection = () => {
       if (!collectItem || !finalInterest) return;
       
+      // 1. Log the History
       const log: FDMaturityLog = {
           id: Date.now().toString(),
           date: collectDate,
@@ -126,7 +148,22 @@ export const FixedDepositView: React.FC = () => {
           year: new Date(collectDate).getFullYear()
       };
 
-      collectFixedDeposit(log, collectItem.id);
+      if (collectionAction === 'withdraw') {
+          // Withdraw: Log and Delete
+          collectFixedDeposit(log, 'withdraw', collectItem.id);
+      } else {
+          // Renew: Log and Update
+          const updatedFD: FixedDeposit = {
+              ...collectItem,
+              startDate: collectDate, // New cycle starts on collection date
+              endDate: renewEndDate,
+              principal: parseFloat(renewPrincipal),
+              rate: parseFloat(renewRate),
+              remarks: `Renewed on ${collectDate}. Prev Slip: ${collectItem.slipNumber}`
+          };
+          collectFixedDeposit(log, 'renew', updatedFD);
+      }
+
       setShowCollectModal(false);
       setCollectItem(null);
   };
@@ -478,44 +515,114 @@ export const FixedDepositView: React.FC = () => {
       {/* --- COLLECT / MATURITY MODAL --- */}
       {showCollectModal && collectItem && (
           <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-              <div className="bg-white rounded-2xl w-full max-w-sm overflow-hidden">
-                  <div className="p-4 border-b border-gray-100 bg-green-50">
-                      <h3 className="font-bold text-green-800 text-center">Collect Dividend</h3>
-                      <p className="text-xs text-green-600 text-center">{collectItem.bank} - {collectItem.slipNumber}</p>
+              <div className="bg-white rounded-2xl w-full max-w-sm overflow-hidden flex flex-col max-h-[90vh]">
+                  <div className="p-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
+                      <div className="text-center w-full">
+                          <h3 className="font-bold text-gray-800">Maturity Action</h3>
+                          <p className="text-xs text-gray-500">{collectItem.bank} • {collectItem.slipNumber}</p>
+                      </div>
+                      <button onClick={() => setShowCollectModal(false)}><X size={20} className="text-gray-400"/></button>
                   </div>
-                  <div className="p-4 space-y-4">
-                      <div className="bg-gray-50 p-3 rounded text-sm">
-                          <div className="flex justify-between mb-1">
-                              <span className="text-gray-500">Principal</span>
-                              <span className="font-medium">{collectItem.principal.toLocaleString()}</span>
+                  
+                  <div className="flex border-b border-gray-100">
+                      <button 
+                        className={`flex-1 py-3 text-sm font-semibold flex justify-center items-center gap-2 ${collectionAction === 'renew' ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50' : 'text-gray-400 hover:bg-gray-50'}`}
+                        onClick={() => setCollectionAction('renew')}
+                      >
+                          <RefreshCw size={16}/> Renew
+                      </button>
+                      <button 
+                        className={`flex-1 py-3 text-sm font-semibold flex justify-center items-center gap-2 ${collectionAction === 'withdraw' ? 'text-red-600 border-b-2 border-red-600 bg-red-50/50' : 'text-gray-400 hover:bg-gray-50'}`}
+                        onClick={() => setCollectionAction('withdraw')}
+                      >
+                          <LogOut size={16}/> Withdraw
+                      </button>
+                  </div>
+
+                  <div className="p-4 space-y-4 overflow-y-auto">
+                      {/* Common Section: Interest Earned */}
+                      <div className="bg-green-50 p-3 rounded-lg border border-green-100">
+                          <div className="flex justify-between items-center mb-2 border-b border-green-200 pb-2">
+                              <span className="text-xs text-green-700 font-semibold uppercase">Dividend / Interest</span>
+                              <span className="text-xs text-green-700 font-semibold uppercase">History Log</span>
                           </div>
-                          <div className="flex justify-between">
-                              <span className="text-gray-500">Original Rate</span>
-                              <span className="font-medium">{collectItem.rate}%</span>
+                          <div className="grid grid-cols-2 gap-3">
+                              <div>
+                                  <label className="text-[10px] text-green-600 font-bold block mb-1">Amount Earned</label>
+                                  <input 
+                                    type="number" 
+                                    className="w-full text-sm font-bold text-green-800 bg-white border border-green-200 rounded px-2 py-1 focus:outline-none focus:border-green-500"
+                                    value={finalInterest}
+                                    onChange={e => setFinalInterest(e.target.value)}
+                                  />
+                              </div>
+                              <div>
+                                  <label className="text-[10px] text-green-600 font-bold block mb-1">Date Collected</label>
+                                  <input 
+                                    type="date" 
+                                    className="w-full text-sm font-medium text-green-800 bg-white border border-green-200 rounded px-2 py-1 focus:outline-none focus:border-green-500"
+                                    value={collectDate}
+                                    onChange={e => setCollectDate(e.target.value)}
+                                  />
+                              </div>
                           </div>
                       </div>
-                      
-                      <Input 
-                        label="Final Interest/Dividend Received" 
-                        type="number" 
-                        step="0.01" 
-                        value={finalInterest} 
-                        onChange={e => setFinalInterest(e.target.value)}
-                      />
-                      <Input 
-                        label="Date Collected" 
-                        type="date"
-                        value={collectDate} 
-                        onChange={e => setCollectDate(e.target.value)}
-                      />
-                      
-                      <p className="text-xs text-gray-400 italic">
-                          *Confirming will move this record to History and remove it from Active list.
-                      </p>
+
+                      {/* Dynamic Section */}
+                      {collectionAction === 'renew' ? (
+                          <div className="space-y-3 animate-fadeIn">
+                              <p className="text-xs text-gray-500 font-medium">New Certificate Details</p>
+                              <div className="grid grid-cols-2 gap-3">
+                                  <Input 
+                                    label="New Principal" 
+                                    type="number" 
+                                    value={renewPrincipal} 
+                                    onChange={e => setRenewPrincipal(e.target.value)}
+                                  />
+                                  <Input 
+                                    label="New Rate (%)" 
+                                    type="number" 
+                                    value={renewRate} 
+                                    onChange={e => setRenewRate(e.target.value)}
+                                  />
+                              </div>
+                              <Input 
+                                label="New Maturity Date" 
+                                type="date" 
+                                value={renewEndDate} 
+                                onChange={e => setRenewEndDate(e.target.value)}
+                              />
+                              <div className="bg-blue-50 p-2 rounded text-xs text-blue-700 flex items-start gap-2">
+                                  <Calendar size={14} className="mt-0.5 flex-shrink-0"/>
+                                  <span>
+                                      New Cycle: {collectDate} to {renewEndDate || '...'} <br/>
+                                      Projected Return: {renewPrincipal && renewRate && renewEndDate ? calculateMaturity(parseFloat(renewPrincipal), parseFloat(renewRate), collectDate, renewEndDate).toFixed(2) : '-'}
+                                  </span>
+                              </div>
+                          </div>
+                      ) : (
+                          <div className="space-y-4 py-4 animate-fadeIn text-center">
+                              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto text-red-500">
+                                  <LogOut size={32}/>
+                              </div>
+                              <div>
+                                  <h4 className="font-bold text-gray-800">Close Account</h4>
+                                  <p className="text-sm text-gray-500 mt-1">
+                                      This will remove the certificate from your active list. <br/>
+                                      The interest earned ({finalInterest}) will be saved to history.
+                                  </p>
+                              </div>
+                          </div>
+                      )}
                   </div>
-                  <div className="p-4 bg-gray-50 flex gap-2">
-                      <Button variant="secondary" className="flex-1" onClick={() => setShowCollectModal(false)}>Cancel</Button>
-                      <Button className="flex-1 bg-green-600 hover:bg-green-700 text-white" onClick={confirmCollection}>Confirm</Button>
+
+                  <div className="p-4 bg-gray-50 border-t border-gray-100">
+                      <Button 
+                        className={`w-full flex justify-center items-center gap-2 ${collectionAction === 'withdraw' ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'}`} 
+                        onClick={confirmCollection}
+                      >
+                          {collectionAction === 'withdraw' ? <><LogOut size={18}/> Confirm Withdrawal</> : <><RefreshCw size={18}/> Confirm Renewal</>}
+                      </Button>
                   </div>
               </div>
           </div>
