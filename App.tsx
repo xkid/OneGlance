@@ -9,6 +9,7 @@ import { StatsView } from './views/Stats';
 import { FixedDepositView } from './views/FixedDeposit';
 import { SalaryView } from './views/Salary';
 import { Wallet, Heart, TrendingUp, FileText, PieChart, Landmark, Banknote } from 'lucide-react';
+// @ts-ignore
 import iconSvg from './icon.svg';
 
 const App: React.FC = () => {

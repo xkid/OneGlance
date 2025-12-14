@@ -27,14 +27,3 @@ declare module '*.webp' {
   const content: string;
   export default content;
 }
-
-export {};
-
-declare global {
-  namespace NodeJS {
-    interface ProcessEnv {
-      API_KEY?: string;
-      [key: string]: string | undefined;
-    }
-  }
-}
