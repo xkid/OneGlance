@@ -1,5 +1,4 @@
 
-
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { AppData, Transaction, ParentCareLog, InvestmentItem, DividendLog, TaxReliefItem, SaleLog, FixedDeposit, FundSnapshot, PurchaseLog, SalaryLog } from '../types';
 
@@ -33,14 +32,7 @@ interface AppContextType {
 const defaultData: AppData = {
   transactions: [],
   parentLogs: [],
-  investments: [
-    { id: '1', type: 'share', agent: 'Direct', name: 'MAYBANK', symbol: '1155.KL', purchasePrice: 8.50, unitsHeld: 1000, purchaseDate: '2023-01-15' },
-    { id: '2', type: 'share', agent: 'Direct', name: 'CIMB Group', symbol: '1023.KL', purchasePrice: 5.20, unitsHeld: 1500, purchaseDate: '2023-02-20' },
-    { id: '3', type: 'share', agent: 'Hwang DBS', name: 'Oversea-Chinese Banking Corp', symbol: 'O39.SI', purchasePrice: 12.50, unitsHeld: 500, purchaseDate: '2023-03-10' },
-    { id: '4', type: 'share', agent: 'MooMoo', name: 'Boston Scientific Corp', symbol: 'BSX', purchasePrice: 50.00, unitsHeld: 50, purchaseDate: '2023-04-05' },
-    { id: '5', type: 'share', agent: 'MooMoo', name: 'Alphabet Inc C', symbol: 'GOOG', purchasePrice: 120.00, unitsHeld: 20, purchaseDate: '2023-05-12' },
-    { id: '6', type: 'fund', agent: 'Public Mutual', name: 'Principal Greater China Equity Fund', symbol: 'PGC-MYR', purchasePrice: 0.85, unitsHeld: 5000, purchaseDate: '2022-06-01' },
-  ],
+  investments: [], // Pre-populated data removed
   dividends: [],
   sales: [],
   fundSnapshots: [],
