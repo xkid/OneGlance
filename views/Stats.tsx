@@ -1,5 +1,4 @@
 
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { CURRENCIES, InvestmentItem } from '../types';
@@ -45,7 +44,7 @@ export const StatsView: React.FC = () => {
   // 1. EXPENSES DATA
   const expenseByCategory = useMemo(() => {
     return data.transactions
-        .filter(t => t.type === 'expense')
+        .filter(t => t.type === 'expense' && !t.isExcludedFromBalance)
         .reduce((acc, t) => {
             acc[t.category] = (acc[t.category] || 0) + t.amount;
             return acc;
@@ -58,13 +57,15 @@ export const StatsView: React.FC = () => {
   })).sort((a,b) => b.value - a.value).slice(0, 6);
 
   const monthlyTrend = useMemo(() => {
-    const trend = data.transactions.reduce((acc, t) => {
-        const month = t.date.substring(0, 7); // YYYY-MM
-        if (!acc[month]) acc[month] = { name: month, income: 0, expense: 0 };
-        if (t.type === 'income') acc[month].income += t.amount;
-        else acc[month].expense += t.amount;
-        return acc;
-    }, {} as Record<string, any>);
+    const trend = data.transactions
+        .filter(t => !t.isExcludedFromBalance)
+        .reduce((acc, t) => {
+            const month = t.date.substring(0, 7); // YYYY-MM
+            if (!acc[month]) acc[month] = { name: month, income: 0, expense: 0 };
+            if (t.type === 'income') acc[month].income += t.amount;
+            else acc[month].expense += t.amount;
+            return acc;
+        }, {} as Record<string, any>);
     return Object.values(trend).sort((a: any, b: any) => a.name.localeCompare(b.name)).slice(-6);
   }, [data.transactions]);
 
@@ -286,24 +287,58 @@ export const StatsView: React.FC = () => {
   }, [data.fixedDeposits]);
 
 
-  // 6. SALARY STATS
-  const salaryData = useMemo(() => {
-      // Filter by selected year
-      const logs = data.salaryLogs.filter(s => s.month.startsWith(selectedSalaryYear.toString()));
-      
-      // Map to Chart Format
-      return logs.sort((a,b) => a.month.localeCompare(b.month)).map(s => {
-          const monthName = new Date(s.month + '-01').toLocaleDateString('default', { month: 'short' });
-          return {
-              name: monthName,
-              Basic: s.basic,
-              Allowances: s.mobile + s.transport + s.wellness,
-              Bonus: s.bonus + s.award + s.gesop,
-              Others: s.others,
-              Deductions: s.epf + s.eis + s.socso // Optional: visualize deductions
-          }
+  // 6. SALARY / INCOME COMPONENT STATS (From Transactions)
+  const incomeBreakdownData = useMemo(() => {
+      const yearPrefix = selectedSalaryYear.toString();
+      const incomeCategoriesToTrack = [
+          "Net Income", 
+          "Basic Pay", 
+          "Mobile phone allowances", 
+          "Transportation allowance",
+          "Flexible wellness allowances",
+          "Spot bonus/bonus"
+      ];
+
+      // Initialize monthly buckets
+      const buckets = Array.from({length: 12}, (_, i) => {
+          const month = (i + 1).toString().padStart(2, '0');
+          const d = { name: new Date(selectedSalaryYear, i, 1).toLocaleDateString('default', {month:'short'}) };
+          incomeCategoriesToTrack.forEach(cat => d[cat] = 0);
+          return d;
       });
-  }, [data.salaryLogs, selectedSalaryYear]);
+
+      data.transactions
+        .filter(t => t.type === 'income' && t.date.startsWith(yearPrefix))
+        .forEach(t => {
+            const monthIdx = parseInt(t.date.split('-')[1]) - 1;
+            if(incomeCategoriesToTrack.includes(t.category)) {
+                buckets[monthIdx][t.category] += t.amount;
+            }
+        });
+      
+      return buckets;
+  }, [data.transactions, selectedSalaryYear]);
+
+  // 7. SALARY DEDUCTIONS STATS (From Transactions)
+  const deductionBreakdownData = useMemo(() => {
+      const yearPrefix = selectedSalaryYear.toString();
+      const deductionCategories = ["GESOP", "EPF EE", "EIS EE", "EIS", "SOCSO", "EPF ER", "EIS ER"];
+
+      const buckets = Array.from({length: 12}, (_, i) => {
+          const d = { name: new Date(selectedSalaryYear, i, 1).toLocaleDateString('default', {month:'short'}) };
+          deductionCategories.forEach(cat => d[cat] = 0);
+          return d;
+      });
+
+      data.transactions
+        .filter(t => t.type === 'expense' && t.date.startsWith(yearPrefix) && deductionCategories.includes(t.category))
+        .forEach(t => {
+            const monthIdx = parseInt(t.date.split('-')[1]) - 1;
+            buckets[monthIdx][t.category] += t.amount;
+        });
+
+      return buckets;
+  }, [data.transactions, selectedSalaryYear]);
 
 
   // --- HANDLERS ---
@@ -409,6 +444,7 @@ export const StatsView: React.FC = () => {
                 </Card>
 
                 <Card title="Monthly Trend (Last 6 Months)">
+                    <p className="text-xs text-gray-400 mb-2">* Excluding 'Recording Only' items</p>
                     <div className="h-[250px] w-full mt-2">
                         {monthlyTrend.length > 0 ? (
                             <ResponsiveContainer width="100%" height="100%">
@@ -426,35 +462,56 @@ export const StatsView: React.FC = () => {
             </>
         )}
 
-        {/* --- VIEW: SALARY --- */}
+        {/* --- VIEW: SALARY (Modified for Income/Deduction Analysis) --- */}
         {moduleView === 'salary' && (
              <div className="space-y-6">
-                <Card title="Salary Composition Breakdown">
-                     <div className="flex justify-between items-center mb-4">
-                        <div className="flex-1"></div>
-                        <select 
-                            value={selectedSalaryYear} 
-                            onChange={e => setSelectedSalaryYear(parseInt(e.target.value))}
-                            className="text-xs bg-gray-100 p-1.5 rounded-lg font-semibold border-none focus:ring-0"
-                        >
-                            {[2023, 2024, 2025, 2026, 2027].map(y => <option key={y} value={y}>{y}</option>)}
-                        </select>
-                     </div>
+                <div className="flex justify-between items-center mb-1">
+                    <h3 className="font-bold text-gray-700">Salary Analysis</h3>
+                    <select 
+                        value={selectedSalaryYear} 
+                        onChange={e => setSelectedSalaryYear(parseInt(e.target.value))}
+                        className="text-xs bg-gray-100 p-1.5 rounded-lg font-semibold border-none focus:ring-0"
+                    >
+                        {[2023, 2024, 2025, 2026, 2027].map(y => <option key={y} value={y}>{y}</option>)}
+                    </select>
+                </div>
+
+                <Card title="Income Components Breakdown">
+                     <p className="text-xs text-gray-400 mb-2">Net Income vs Recorded Allowances</p>
                      <div className="h-[350px] w-full">
-                        {salaryData.length > 0 ? (
-                            <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={salaryData} margin={{ top: 5, right: 0, left: -20, bottom: 5 }}>
-                                    <XAxis dataKey="name" fontSize={10} tickLine={false} axisLine={false} />
-                                    <YAxis fontSize={10} tickLine={false} axisLine={false}/>
-                                    <Tooltip cursor={{fill: '#f3f4f6'}} />
-                                    <Legend wrapperStyle={{fontSize: '10px'}} />
-                                    <Bar dataKey="Basic" stackId="a" fill="#007AFF" />
-                                    <Bar dataKey="Allowances" stackId="a" fill="#34C759" />
-                                    <Bar dataKey="Bonus" stackId="a" fill="#FF9500" />
-                                    <Bar dataKey="Others" stackId="a" fill="#AF52DE" />
-                                </BarChart>
-                            </ResponsiveContainer>
-                        ) : <div className="h-full flex items-center justify-center text-gray-400">No Salary Data for {selectedSalaryYear}</div>}
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={incomeBreakdownData} margin={{ top: 5, right: 0, left: -20, bottom: 5 }}>
+                                <XAxis dataKey="name" fontSize={10} tickLine={false} axisLine={false} />
+                                <YAxis fontSize={10} tickLine={false} axisLine={false}/>
+                                <Tooltip cursor={{fill: '#f3f4f6'}} />
+                                <Legend wrapperStyle={{fontSize: '10px'}} />
+                                <Bar dataKey="Net Income" stackId="a" fill="#34C759" />
+                                <Bar dataKey="Basic Pay" stackId="b" fill="#007AFF" />
+                                <Bar dataKey="Mobile phone allowances" stackId="b" fill="#5856D6" />
+                                <Bar dataKey="Transportation allowance" stackId="b" fill="#FF9500" />
+                                <Bar dataKey="Flexible wellness allowances" stackId="b" fill="#FF2D55" />
+                                <Bar dataKey="Spot bonus/bonus" stackId="b" fill="#AF52DE" />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+                </Card>
+
+                <Card title="Recorded Deductions Breakdown">
+                     <p className="text-xs text-gray-400 mb-2">Employee & Employer Contributions</p>
+                     <div className="h-[350px] w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={deductionBreakdownData} margin={{ top: 5, right: 0, left: -20, bottom: 5 }}>
+                                <XAxis dataKey="name" fontSize={10} tickLine={false} axisLine={false} />
+                                <YAxis fontSize={10} tickLine={false} axisLine={false}/>
+                                <Tooltip cursor={{fill: '#f3f4f6'}} />
+                                <Legend wrapperStyle={{fontSize: '10px'}} />
+                                <Bar dataKey="EPF EE" stackId="a" fill="#007AFF" />
+                                <Bar dataKey="EPF ER" stackId="a" fill="#5AC8FA" />
+                                <Bar dataKey="SOCSO" stackId="a" fill="#FF9500" />
+                                <Bar dataKey="EIS" stackId="a" fill="#FF3B30" />
+                                <Bar dataKey="GESOP" stackId="a" fill="#AF52DE" />
+                            </BarChart>
+                        </ResponsiveContainer>
                     </div>
                 </Card>
              </div>

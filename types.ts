@@ -10,6 +10,7 @@ export interface Transaction {
   category: string;
   type: TransactionType;
   isTaxRelief?: boolean; // New flag for tax sync
+  isExcludedFromBalance?: boolean; // New: For "Recording Only" items
   receiptNumber?: string; // New: For tax sync
   hasEInvoice?: boolean; // New: For tax sync
 }
@@ -152,11 +153,15 @@ export interface AppData {
 }
 
 export const INCOME_CATEGORIES = [
-  "Salary", 
+  "Net Income", 
   "Share Dividends", 
-  "Bonus", 
-  "Allowances", 
-  "Misc Income"
+  "Misc Income",
+  // Recording Only Categories
+  "Basic Pay",
+  "Mobile phone allowances",
+  "Transportation allowance",
+  "Flexible wellness allowances",
+  "Spot bonus/bonus"
 ];
 
 // All available expense categories (used for Transactions)
@@ -177,7 +182,6 @@ export const EXPENSE_CATEGORIES = [
   "Social expenses", 
   "Income Tax", 
   "BSC share purchase", 
-  "EPF contributions", 
   "Misc mandatory deductions from monthly salary",
   "Parent Nursing Care",
   "Medical Checkup",
@@ -188,7 +192,33 @@ export const EXPENSE_CATEGORIES = [
   "PRS",
   "SSPN",
   "Voluntary contributions to EPF",
-  "Others"
+  "Others",
+  // Recording Only Categories
+  "GESOP",
+  "EPF EE",
+  "EIS EE",
+  "EIS",
+  "SOCSO",
+  "EPF ER",
+  "EIS ER"
+];
+
+// Categories that do not affect the actual wallet balance (Info Only)
+export const EXCLUDED_FROM_BALANCE_CATEGORIES = [
+  // Income
+  "Basic Pay",
+  "Mobile phone allowances",
+  "Transportation allowance",
+  "Flexible wellness allowances",
+  "Spot bonus/bonus",
+  // Expenses
+  "GESOP",
+  "EPF EE",
+  "EIS EE",
+  "EIS",
+  "SOCSO",
+  "EPF ER",
+  "EIS ER"
 ];
 
 // Strictly Eligible Tax Relief Categories (Used for Tax Module Dropdown)

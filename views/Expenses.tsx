@@ -1,10 +1,9 @@
 
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
-import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from '../types';
+import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, EXCLUDED_FROM_BALANCE_CATEGORIES } from '../types';
 import { Card, Button, Input, Select, Badge } from '../components/Shared';
-import { Plus, Trash2, AlertTriangle, Download, ChevronLeft, ChevronRight, CheckSquare, Calendar, Settings, FileText, ChevronDown } from 'lucide-react';
+import { Plus, Trash2, AlertTriangle, Download, ChevronLeft, ChevronRight, CheckSquare, Calendar, Settings, FileText, ChevronDown, Info } from 'lucide-react';
 
 export const ExpensesView: React.FC = () => {
   const { data, addTransaction, deleteTransaction, exportDataCSV } = useApp();
@@ -52,6 +51,15 @@ export const ExpensesView: React.FC = () => {
       if (type === 'income') setIsTaxRelief(false);
   }, [type]);
 
+  // Handle Default Amounts for specific recording-only income categories
+  useEffect(() => {
+      if (category === "Mobile phone allowances") {
+          setAmount("150");
+      } else if (category === "Transportation allowance") {
+          setAmount("2000");
+      }
+  }, [category]);
+
   // Handle Cycle Mode Toggle
   const toggleCycleMode = (mode: 'fiscal' | 'custom') => {
       setCycleMode(mode);
@@ -85,8 +93,10 @@ export const ExpensesView: React.FC = () => {
   }, [data.transactions, cycleRange]);
 
   const monthlyStats = useMemo(() => {
-    const income = filteredTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
-    const expense = filteredTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+    // Only calculate using actual transactions (not excluded ones)
+    const activeTrans = filteredTransactions.filter(t => !t.isExcludedFromBalance);
+    const income = activeTrans.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+    const expense = activeTrans.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
     return { income, expense, balance: income - expense };
   }, [filteredTransactions]);
 
@@ -96,6 +106,10 @@ export const ExpensesView: React.FC = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!amount) return;
+    
+    // Check if recording only
+    const isExcluded = EXCLUDED_FROM_BALANCE_CATEGORIES.includes(category);
+
     addTransaction({
       id: Date.now().toString(),
       date: inputDate,
@@ -104,6 +118,7 @@ export const ExpensesView: React.FC = () => {
       category,
       type,
       isTaxRelief: type === 'expense' ? isTaxRelief : false,
+      isExcludedFromBalance: isExcluded,
       receiptNumber: (type === 'expense' && isTaxRelief) ? receiptNumber : undefined,
       hasEInvoice: (type === 'expense' && isTaxRelief) ? hasEInvoice : undefined
     });
@@ -233,7 +248,7 @@ export const ExpensesView: React.FC = () => {
       <Card className="bg-gradient-to-br from-ios-bg to-white">
         <div className="grid grid-cols-3 gap-4 text-center">
             <div>
-                <p className="text-xs text-gray-500 uppercase">Income</p>
+                <p className="text-xs text-gray-500 uppercase">Net Income</p>
                 <p className="text-lg font-bold text-green-600">+{monthlyStats.income.toFixed(2)}</p>
             </div>
             <div>
@@ -250,7 +265,7 @@ export const ExpensesView: React.FC = () => {
         {isWarning && (
             <div className="mt-4 bg-orange-50 border border-orange-200 rounded-lg p-3 flex items-center gap-2 text-orange-700 text-sm">
                 <AlertTriangle size={16} />
-                <span>Warning: Expenses have exceeded 80% of income!</span>
+                <span>Warning: Expenses have exceeded 80% of net income!</span>
             </div>
         )}
       </Card>
@@ -279,6 +294,13 @@ export const ExpensesView: React.FC = () => {
             <Select value={category} onChange={e => setCategory(e.target.value)} label="Category">
                 {categoryOptions.map(c => <option key={c} value={c}>{c}</option>)}
             </Select>
+
+            {EXCLUDED_FROM_BALANCE_CATEGORIES.includes(category) && (
+                <div className="bg-blue-50 p-2 rounded text-xs text-blue-700 flex items-start gap-2">
+                    <Info size={14} className="mt-0.5 flex-shrink-0"/>
+                    <span>This item is for <strong>recording only</strong>. It will be synced to Stats but will NOT affect your current wallet balance.</span>
+                </div>
+            )}
 
             {type === 'expense' && (
               <div className="bg-gray-50 p-3 rounded-lg space-y-3 border border-gray-100">
@@ -329,15 +351,16 @@ export const ExpensesView: React.FC = () => {
         {filteredTransactions
             .sort((a,b) => b.date.localeCompare(a.date))
             .map(t => (
-            <div key={t.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center">
+            <div key={t.id} className={`bg-white p-4 rounded-xl shadow-sm border ${t.isExcludedFromBalance ? 'border-dashed border-gray-300 bg-gray-50/50' : 'border-gray-100'} flex justify-between items-center`}>
                 <div className="flex items-center gap-3 overflow-hidden">
-                    <div className={`w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center ${t.type === 'income' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
+                    <div className={`w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center ${t.isExcludedFromBalance ? 'bg-gray-200 text-gray-500' : t.type === 'income' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
                         {t.type === 'income' ? '+' : '-'}
                     </div>
                     <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                          <p className="font-medium text-gray-900 truncate">{t.description}</p>
+                          <p className={`font-medium truncate ${t.isExcludedFromBalance ? 'text-gray-500' : 'text-gray-900'}`}>{t.description}</p>
                           {t.isTaxRelief && <Badge color="blue">Tax</Badge>}
+                          {t.isExcludedFromBalance && <span className="text-[9px] uppercase font-bold bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded">Info Only</span>}
                         </div>
                         <p className="text-xs text-gray-500 truncate">{t.category} • {t.date}</p>
                         {t.isTaxRelief && (t.receiptNumber || t.hasEInvoice) && (
@@ -349,7 +372,7 @@ export const ExpensesView: React.FC = () => {
                     </div>
                 </div>
                 <div className="flex items-center gap-3 flex-shrink-0">
-                    <span className={`font-semibold ${t.type === 'income' ? 'text-green-600' : 'text-gray-900'}`}>
+                    <span className={`font-semibold ${t.isExcludedFromBalance ? 'text-gray-400' : t.type === 'income' ? 'text-green-600' : 'text-gray-900'}`}>
                         {t.type === 'income' ? '+' : '-'}{t.amount.toFixed(2)}
                     </span>
                     <button onClick={() => deleteTransaction(t.id)} className="text-gray-400 hover:text-red-500">
