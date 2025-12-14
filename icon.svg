@@ -1,79 +1,111 @@
 <svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <!-- Background: Auspicious Red Gradient -->
-  <defs>
-    <linearGradient id="bgGrad" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#FF5E5E" /> <!-- Bright Cute Red -->
-      <stop offset="100%" stop-color="#D32F2F" /> <!-- Deep Red -->
-    </linearGradient>
-  </defs>
-  <rect width="512" height="512" fill="url(#bgGrad)" />
+  <!-- Background: Soft Pink/Red from image -->
+  <rect width="512" height="512" rx="0" fill="#F08080"/>
+  
+  <!-- Trend Line Top Right -->
+  <path d="M380 100 L440 60 M440 60 L440 110 M440 60 L390 60" stroke="#5D4037" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M380 100 L340 120 L310 90" stroke="#5D4037" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" opacity="0.8"/>
 
-  <!-- Content Container (Centered) -->
+  <!-- Content Group -->
   <g transform="translate(256, 280)">
     
     <!-- Body -->
-    <path d="M-130 160 Q-140 0 0 0 Q140 0 130 160 Z" fill="#FFFFFF" />
+    <path d="M-140 140 Q-150 0 0 0 Q150 0 140 140 L140 210 Q140 230 0 230 Q-140 230 -140 210 Z" fill="#FFFFFF"/>
     
-    <!-- Belly Coin (Koban) -->
-    <rect x="-55" y="80" width="110" height="75" rx="18" fill="#FFD700" stroke="#B8860B" stroke-width="4"/>
-    <path d="M-25 105 H25 M-25 130 H25" stroke="#B8860B" stroke-width="4" stroke-linecap="round" />
+    <!-- Body Patches -->
+    <path d="M-135 120 Q-100 160 -80 200 L-138 210 Z" fill="#E6C200" opacity="0.9"/>
+    <path d="M135 120 Q100 160 80 200 L138 210 Z" fill="#E6C200" opacity="0.9"/>
 
+    <!-- Green Bib -->
+    <path d="M-110 50 Q0 180 110 50" fill="#4DB6AC"/>
+    
     <!-- Red Collar -->
-    <path d="M-100 50 Q0 100 100 50" stroke="#FF0000" stroke-width="15" stroke-linecap="round" fill="none"/>
-    <!-- Bell -->
-    <circle cx="0" cy="80" r="22" fill="#FFD700" stroke="#B8860B" stroke-width="3"/>
+    <path d="M-115 45 Q0 110 115 45" stroke="#D32F2F" stroke-width="16" stroke-linecap="round" fill="none"/>
 
-    <!-- Head (Larger for cuteness) -->
-    <ellipse cx="0" cy="-60" rx="160" ry="135" fill="#FFFFFF" />
+    <!-- Center Coin -->
+    <circle cx="0" cy="115" r="45" fill="#FFD700" stroke="#B8860B" stroke-width="4"/>
+    <!-- "Fu" Symbol (Simulated) -->
+    <circle cx="0" cy="115" r="35" stroke="#B8860B" stroke-width="2" fill="none" opacity="0.5"/>
+    <path d="M-15 105 H15 M0 100 V130 M-12 130 H12" stroke="#8B4513" stroke-width="5" stroke-linecap="round"/>
+    <rect x="-10" y="115" width="20" height="15" stroke="#8B4513" stroke-width="3" fill="none"/>
+
+    <!-- Head -->
+    <ellipse cx="0" cy="-60" rx="150" ry="125" fill="#FFFFFF"/>
     
+    <!-- Head Patch (Right Ear area) -->
+    <path d="M60 -160 Q120 -140 130 -80 Q80 -80 60 -160" fill="#E6C200" opacity="0.9"/>
+
     <!-- Ears -->
-    <path d="M-110 -150 L-150 -240 L-50 -190 Z" fill="#FFFFFF" stroke="#EEE" stroke-width="2"/>
-    <path d="M-115 -165 L-135 -215 L-75 -195 Z" fill="#FFB6C1" /> <!-- Inner Ear -->
-    
-    <path d="M110 -150 L150 -240 L50 -190 Z" fill="#FFFFFF" stroke="#EEE" stroke-width="2"/>
-    <path d="M115 -165 L135 -215 L75 -195 Z" fill="#FFB6C1" /> <!-- Inner Ear -->
+    <path d="M-90 -150 L-130 -230 L-30 -190 Z" fill="#FFFFFF" stroke="#F0F0F0" stroke-width="2"/>
+    <path d="M-95 -165 L-115 -205 L-55 -195 Z" fill="#FF8A80"/> <!-- Pink Inner -->
 
-    <!-- Cute Face -->
-    <!-- Eyes (Happy Arches) -->
-    <path d="M-90 -60 Q-55 -95 -20 -60" stroke="#333" stroke-width="12" stroke-linecap="round" fill="none" />
-    <path d="M90 -60 Q55 -95 20 -60" stroke="#333" stroke-width="12" stroke-linecap="round" fill="none" />
-    
-    <!-- Rosy Cheeks -->
-    <ellipse cx="-110" cy="-25" rx="25" ry="16" fill="#FFB6C1" opacity="0.5"/>
-    <ellipse cx="110" cy="-25" rx="25" ry="16" fill="#FFB6C1" opacity="0.5"/>
+    <path d="M90 -150 L130 -230 L30 -190 Z" fill="#FFFFFF" stroke="#F0F0F0" stroke-width="2"/>
+    <path d="M95 -165 L115 -205 L55 -195 Z" fill="#FF8A80"/> <!-- Pink Inner -->
+    <path d="M110 -200 L90 -160 L130 -150 Z" fill="#E6C200" opacity="0.8"/> <!-- Ear Tip Patch -->
 
-    <!-- Nose -->
-    <path d="M-10 -30 L10 -30 L0 -20 Z" fill="#FF8C00" stroke="#333" stroke-width="1" stroke-linejoin="round"/>
-    
-    <!-- Mouth (Cute '3' shape) -->
-    <path d="M0 -20 Q-20 -5 -50 -25" stroke="#333" stroke-width="7" stroke-linecap="round" fill="none" />
-    <path d="M0 -20 Q20 -5 50 -25" stroke="#333" stroke-width="7" stroke-linecap="round" fill="none" />
+    <!-- Face -->
+    <!-- Eyes -->
+    <path d="M-90 -60 Q-55 -90 -20 -60" stroke="#3E2723" stroke-width="10" stroke-linecap="round" fill="none"/>
+    <path d="M90 -60 Q55 -90 20 -60" stroke="#3E2723" stroke-width="10" stroke-linecap="round" fill="none"/>
+
+    <!-- Cheeks -->
+    <ellipse cx="-110" cy="-25" rx="25" ry="15" fill="#FFCDD2"/>
+    <ellipse cx="110" cy="-25" rx="25" ry="15" fill="#FFCDD2"/>
+    <!-- Cheek markings -->
+    <line x1="-120" y1="-25" x2="-100" y2="-25" stroke="#E57373" stroke-width="2"/>
+    <line x1="120" y1="-25" x2="100" y2="-25" stroke="#E57373" stroke-width="2"/>
+
+    <!-- Nose & Mouth -->
+    <path d="M-8 -25 L8 -25 L0 -15 Z" fill="#3E2723"/>
+    <path d="M0 -15 Q-20 5 -40 -15" stroke="#3E2723" stroke-width="6" stroke-linecap="round" fill="none"/>
+    <path d="M0 -15 Q20 5 40 -15" stroke="#3E2723" stroke-width="6" stroke-linecap="round" fill="none"/>
 
     <!-- Whiskers -->
-    <g stroke="#333" stroke-width="5" stroke-linecap="round">
-        <line x1="-165" y1="-45" x2="-125" y2="-35" />
-        <line x1="-165" y1="-10" x2="-125" y2="-10" />
-        <line x1="165" y1="-45" x2="125" y2="-35" />
-        <line x1="165" y1="-10" x2="125" y2="-10" />
+    <g stroke="#3E2723" stroke-width="4" stroke-linecap="round">
+        <line x1="-160" y1="-40" x2="-130" y2="-30" />
+        <line x1="-160" y1="-10" x2="-130" y2="-10" />
+        <line x1="160" y1="-40" x2="130" y2="-30" />
+        <line x1="160" y1="-10" x2="130" y2="-10" />
     </g>
 
-    <!-- Paws (Two Hands Up - High Five!) -->
-    <g transform="translate(-170, -70) rotate(-25)">
-       <ellipse cx="0" cy="0" rx="45" ry="55" fill="#FFFFFF" stroke="#E0E0E0" stroke-width="3"/>
-       <!-- Paw pads -->
-       <circle cx="0" cy="-15" r="16" fill="#FFB6C1"/>
-       <circle cx="-22" cy="-38" r="7" fill="#FFB6C1"/>
-       <circle cx="0" cy="-45" r="7" fill="#FFB6C1"/>
-       <circle cx="22" cy="-38" r="7" fill="#FFB6C1"/>
+    <!-- Arms/Paws Up -->
+    <!-- Left Paw -->
+    <g transform="translate(-150, -30) rotate(-15)">
+       <ellipse cx="0" cy="0" rx="35" ry="40" fill="#FFFFFF" stroke="#EEE" stroke-width="2"/>
+       <ellipse cx="0" cy="-10" rx="20" ry="15" fill="#FFCDD2"/> <!-- Main Pad -->
+       <circle cx="-15" cy="-28" r="5" fill="#FFCDD2"/>
+       <circle cx="0" cy="-35" r="5" fill="#FFCDD2"/>
+       <circle cx="15" cy="-28" r="5" fill="#FFCDD2"/>
     </g>
 
-    <g transform="translate(170, -70) rotate(25)">
-       <ellipse cx="0" cy="0" rx="45" ry="55" fill="#FFFFFF" stroke="#E0E0E0" stroke-width="3"/>
-       <!-- Paw pads -->
-       <circle cx="0" cy="-15" r="16" fill="#FFB6C1"/>
-       <circle cx="-22" cy="-38" r="7" fill="#FFB6C1"/>
-       <circle cx="0" cy="-45" r="7" fill="#FFB6C1"/>
-       <circle cx="22" cy="-38" r="7" fill="#FFB6C1"/>
+    <!-- Right Paw -->
+    <g transform="translate(150, -30) rotate(15)">
+       <ellipse cx="0" cy="0" rx="35" ry="40" fill="#FFFFFF" stroke="#EEE" stroke-width="2"/>
+       <path d="M-20 10 Q0 -20 20 10 Z" fill="#E6C200" opacity="0.8"/> <!-- Patch on arm -->
+       <ellipse cx="0" cy="-10" rx="20" ry="15" fill="#FFCDD2"/> <!-- Main Pad -->
+       <circle cx="-15" cy="-28" r="5" fill="#FFCDD2"/>
+       <circle cx="0" cy="-35" r="5" fill="#FFCDD2"/>
+       <circle cx="15" cy="-28" r="5" fill="#FFCDD2"/>
     </g>
+
+    <!-- Feet -->
+    <g transform="translate(0, 210)">
+        <path d="M-80 0 Q-80 20 -50 20 Q-20 20 -20 0" fill="#FFFFFF" stroke="#EEE" stroke-width="2"/>
+        <path d="M-70 15 L-50 15 M-50 15 L-30 15" stroke="#DDD" stroke-width="2"/>
+
+        <path d="M20 0 Q20 20 50 20 Q80 20 80 0" fill="#FFFFFF" stroke="#EEE" stroke-width="2"/>
+        <path d="M30 15 L50 15 M50 15 L70 15" stroke="#DDD" stroke-width="2"/>
+    </g>
+
+    <!-- Floating Gold Coins -->
+    <g transform="translate(-200, -80) rotate(-20)">
+         <circle r="25" fill="#FFD700" stroke="#B8860B" stroke-width="2"/>
+         <rect x="-8" y="-8" width="16" height="16" stroke="#B8860B" stroke-width="2" rx="2"/>
+    </g>
+    <g transform="translate(-200, 80) rotate(10)">
+         <circle r="22" fill="#FFD700" stroke="#B8860B" stroke-width="2"/>
+         <rect x="-7" y="-7" width="14" height="14" stroke="#B8860B" stroke-width="2" rx="2"/>
+    </g>
+
   </g>
 </svg>
