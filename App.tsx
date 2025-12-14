@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect } from 'react';
 import { AppProvider } from './context/AppContext';
 import { ExpensesView } from './views/Expenses';
@@ -10,56 +9,79 @@ import { StatsView } from './views/Stats';
 import { FixedDepositView } from './views/FixedDeposit';
 import { SalaryView } from './views/Salary';
 import { Wallet, Heart, TrendingUp, FileText, PieChart, Landmark, Banknote } from 'lucide-react';
+import iconSvg from './icon.svg';
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'expenses' | 'parent' | 'invest' | 'fd' | 'salary' | 'tax' | 'stats'>('expenses');
 
-  // iOS Icon Fix: Convert SVG to PNG client-side for "Add to Home Screen" support
+  // iOS Icon Fix: Generates multiple PNG sizes from SVG client-side for "Add to Home Screen" support
   useEffect(() => {
-    const generateAppleTouchIcon = () => {
-        const link = document.getElementById('apple-touch-icon') as HTMLLinkElement;
-        if (!link) {
-            console.warn("Apple Touch Icon link tag not found");
+    const generateAppleTouchIcons = async () => {
+        // Load the source SVG
+        const img = new Image();
+        img.src = iconSvg;
+        
+        try {
+            await new Promise((resolve, reject) => {
+                img.onload = resolve;
+                img.onerror = reject;
+            });
+        } catch (e) {
+            console.error("Failed to load icon SVG for generation", e);
             return;
         }
 
-        // Create an image element to load the SVG
-        const img = new Image();
-        // Add timestamp to prevent caching issues
-        img.src = '/icon.svg?v=' + new Date().getTime();
-        img.crossOrigin = 'anonymous'; // Good practice even for local
-        
-        // Ensure the image loads before drawing
-        img.onload = () => {
+        // Define iOS standard icon sizes
+        const sizes = [76, 120, 152, 167, 180];
+
+        // Generate a link tag for each size
+        sizes.forEach(size => {
             const canvas = document.createElement('canvas');
-            canvas.width = 512;
-            canvas.height = 512;
+            canvas.width = size;
+            canvas.height = size;
             const ctx = canvas.getContext('2d');
+            
             if (ctx) {
-                // Clear canvas first
-                ctx.clearRect(0, 0, 512, 512);
-                // Draw the SVG onto the canvas
-                ctx.drawImage(img, 0, 0, 512, 512);
+                ctx.clearRect(0, 0, size, size);
+                // Draw SVG onto canvas
+                ctx.drawImage(img, 0, 0, size, size);
+                
                 try {
-                    // Convert to PNG data URI
                     const pngUrl = canvas.toDataURL('image/png');
-                    // Update the link tag
+                    const sizeStr = `${size}x${size}`;
+                    
+                    // Check if specific link already exists
+                    let link = document.querySelector(`link[rel="apple-touch-icon"][sizes="${sizeStr}"]`) as HTMLLinkElement;
+                    
+                    if (!link) {
+                        link = document.createElement('link');
+                        link.rel = 'apple-touch-icon';
+                        link.setAttribute('sizes', sizeStr);
+                        document.head.appendChild(link);
+                    }
                     link.href = pngUrl;
-                    link.setAttribute('sizes', '180x180'); // Standard iOS size hint
-                    console.log("iOS Icon generated successfully");
                 } catch (e) {
-                    console.error("Failed to generate iOS icon data URI", e);
+                    console.warn(`Failed to generate iOS icon for size ${size}`, e);
                 }
             }
-        };
+        });
 
-        img.onerror = (e) => {
-            console.error("Failed to load icon.svg for iOS generation", e);
+        // Update the default fallback icon (usually 180x180 or largest)
+        const defaultLink = document.getElementById('apple-touch-icon-default') as HTMLLinkElement;
+        if (defaultLink) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 180;
+            canvas.height = 180;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+                ctx.drawImage(img, 0, 0, 180, 180);
+                defaultLink.href = canvas.toDataURL('image/png');
+            }
         }
     };
 
-    // Run with a slight delay to ensure DOM is fully ready and resources available
-    const timer = setTimeout(generateAppleTouchIcon, 500);
+    // Run with a slight delay to ensure resources available
+    const timer = setTimeout(generateAppleTouchIcons, 500);
     return () => clearTimeout(timer);
   }, []);
 
