@@ -9,8 +9,6 @@ import { StatsView } from './views/Stats';
 import { FixedDepositView } from './views/FixedDeposit';
 import { SalaryView } from './views/Salary';
 import { Wallet, Heart, TrendingUp, FileText, PieChart, Landmark, Banknote } from 'lucide-react';
-// @ts-ignore
-import iconSvg from './icon.svg';
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'expenses' | 'parent' | 'invest' | 'fd' | 'salary' | 'tax' | 'stats'>('expenses');
@@ -20,7 +18,8 @@ const App: React.FC = () => {
     const generateAppleTouchIcons = async () => {
         // Load the source SVG
         const img = new Image();
-        img.src = iconSvg;
+        // Use absolute path for public asset to avoid module resolution issues
+        img.src = "/icon.svg";
         
         try {
             await new Promise((resolve, reject) => {
