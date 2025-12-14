@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
-import { EXPENSE_CATEGORIES } from '../types';
+import { ELIGIBLE_TAX_CATEGORIES } from '../types';
 import { Card, Button, Input, Select, Badge } from '../components/Shared';
 import { FileText, Plus, Trash2, Download, Link2, Edit2, X, Save } from 'lucide-react';
 
@@ -12,7 +12,7 @@ export const TaxView: React.FC = () => {
   
   // Add Form State
   const [amount, setAmount] = useState('');
-  const [category, setCategory] = useState(EXPENSE_CATEGORIES[0]);
+  const [category, setCategory] = useState(ELIGIBLE_TAX_CATEGORIES[0]);
   const [description, setDescription] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [receipt, setReceipt] = useState('');
@@ -119,9 +119,6 @@ export const TaxView: React.FC = () => {
       a.click();
   }
 
-  // Filter out Income Categories from the Tax Dropdown
-  const taxCategoryOptions = EXPENSE_CATEGORIES.filter(c => c !== "Income Tax" && c !== "Others");
-
   return (
     <div className="space-y-6 pb-24">
       <div className="flex justify-between items-center">
@@ -148,7 +145,7 @@ export const TaxView: React.FC = () => {
       <Card title="Add Manual Record">
           <form onSubmit={handleSubmit} className="space-y-3">
               <Select label="Category" value={category} onChange={e => setCategory(e.target.value)}>
-                  {taxCategoryOptions.map(c => <option key={c} value={c}>{c}</option>)}
+                  {ELIGIBLE_TAX_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
               </Select>
               <Input label="Description" value={description} onChange={e => setDescription(e.target.value)} placeholder="Item details" required/>
               <div className="grid grid-cols-2 gap-3">
@@ -184,6 +181,7 @@ export const TaxView: React.FC = () => {
                     <div className="flex items-center gap-3">
                         <div className="text-right">
                            <span className="font-bold text-gray-800 block">{t.amount.toFixed(2)}</span>
+                           {/* Allow edit on manual. Synced items usually edited at source, but logic added just in case */}
                            <button 
                                 onClick={() => handleEditClick(t)}
                                 className="text-[10px] text-blue-600 hover:underline mt-1 inline-flex items-center gap-1"
@@ -213,11 +211,11 @@ export const TaxView: React.FC = () => {
                   <div className="p-4 space-y-3">
                       {!editingItem.isManual && (
                           <div className="bg-blue-50 p-2 rounded text-xs text-blue-800 mb-2">
-                              Note: This is a synced item. Editing this will update the original expense record.
+                              Note: This is a synced item. Editing this will update the original source record.
                           </div>
                       )}
                       <Select label="Category" value={editingItem.category} onChange={e => setEditingItem({...editingItem, category: e.target.value})}>
-                          {taxCategoryOptions.map(c => <option key={c} value={c}>{c}</option>)}
+                          {ELIGIBLE_TAX_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                       </Select>
                       <Input label="Description" value={editingItem.description} onChange={e => setEditingItem({...editingItem, description: e.target.value})} />
                       <div className="grid grid-cols-2 gap-3">

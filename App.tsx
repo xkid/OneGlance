@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import { AppProvider } from './context/AppContext';
 import { ExpensesView } from './views/Expenses';
@@ -7,10 +8,11 @@ import { InvestmentsView } from './views/Investments';
 import { TaxView } from './views/Tax';
 import { StatsView } from './views/Stats';
 import { FixedDepositView } from './views/FixedDeposit';
-import { Wallet, Heart, TrendingUp, FileText, PieChart, Landmark } from 'lucide-react';
+import { SalaryView } from './views/Salary';
+import { Wallet, Heart, TrendingUp, FileText, PieChart, Landmark, Banknote } from 'lucide-react';
 
 const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'expenses' | 'parent' | 'invest' | 'fd' | 'tax' | 'stats'>('expenses');
+  const [activeTab, setActiveTab] = useState<'expenses' | 'parent' | 'invest' | 'fd' | 'salary' | 'tax' | 'stats'>('expenses');
 
   const renderView = () => {
     switch (activeTab) {
@@ -18,6 +20,7 @@ const App: React.FC = () => {
       case 'parent': return <ParentCareView />;
       case 'invest': return <InvestmentsView />;
       case 'fd': return <FixedDepositView />;
+      case 'salary': return <SalaryView />;
       case 'tax': return <TaxView />;
       case 'stats': return <StatsView />;
       default: return <ExpensesView />;
@@ -39,13 +42,13 @@ const App: React.FC = () => {
           </main>
 
           {/* Bottom Navigation */}
-          <div className="fixed bottom-0 w-full max-w-md bg-white/90 backdrop-blur-lg border-t border-gray-200 pb-safe pt-2 px-2 z-30">
-            <div className="flex justify-around items-end pb-4">
+          <div className="fixed bottom-0 w-full max-w-md bg-white/90 backdrop-blur-lg border-t border-gray-200 pb-safe pt-2 px-2 z-30 overflow-x-auto no-scrollbar">
+            <div className="flex justify-between items-end pb-4 min-w-[350px]">
               <NavBtn 
                 active={activeTab === 'expenses'} 
                 onClick={() => setActiveTab('expenses')} 
                 icon={<Wallet size={24} />} 
-                label="Expenses" 
+                label="Exp" 
               />
               <NavBtn 
                 active={activeTab === 'parent'} 
@@ -64,6 +67,12 @@ const App: React.FC = () => {
                 onClick={() => setActiveTab('fd')} 
                 icon={<Landmark size={24} />} 
                 label="FD" 
+              />
+              <NavBtn 
+                active={activeTab === 'salary'} 
+                onClick={() => setActiveTab('salary')} 
+                icon={<Banknote size={24} />} 
+                label="Salary" 
               />
               <NavBtn 
                 active={activeTab === 'tax'} 
@@ -88,7 +97,7 @@ const App: React.FC = () => {
 const NavBtn: React.FC<{ active: boolean; onClick: () => void; icon: React.ReactNode; label: string }> = ({ active, onClick, icon, label }) => (
   <button 
     onClick={onClick} 
-    className={`flex flex-col items-center gap-1 transition-colors duration-200 ${active ? 'text-ios-blue' : 'text-gray-400 hover:text-gray-600'}`}
+    className={`flex flex-col items-center gap-1 transition-colors duration-200 min-w-[40px] ${active ? 'text-ios-blue' : 'text-gray-400 hover:text-gray-600'}`}
   >
     {icon}
     <span className="text-[10px] font-medium">{label}</span>

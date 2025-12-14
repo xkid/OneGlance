@@ -122,15 +122,33 @@ export interface FixedDeposit {
   remarks?: string;
 }
 
+export interface SalaryLog {
+  id: string;
+  month: string; // YYYY-MM
+  basic: number;
+  mobile: number;
+  transport: number;
+  wellness: number;
+  award: number;
+  bonus: number;
+  gesop: number;
+  epf: number;
+  eis: number;
+  socso: number;
+  others: number;
+  notes?: string;
+}
+
 export interface AppData {
   transactions: Transaction[];
   parentLogs: ParentCareLog[];
   investments: InvestmentItem[];
   dividends: DividendLog[];
   sales: SaleLog[];
-  fundSnapshots: FundSnapshot[]; // New: Historical data for funds
+  fundSnapshots: FundSnapshot[];
   taxItems: TaxReliefItem[];
   fixedDeposits: FixedDeposit[];
+  salaryLogs: SalaryLog[];
 }
 
 export const INCOME_CATEGORIES = [
@@ -141,6 +159,7 @@ export const INCOME_CATEGORIES = [
   "Misc Income"
 ];
 
+// All available expense categories (used for Transactions)
 export const EXPENSE_CATEGORIES = [
   "Meals", 
   "Fuel", 
@@ -160,7 +179,6 @@ export const EXPENSE_CATEGORIES = [
   "BSC share purchase", 
   "EPF contributions", 
   "Misc mandatory deductions from monthly salary",
-  // Tax Relief Specific Categories added for Sync
   "Parent Nursing Care",
   "Medical Checkup",
   "Books",
@@ -173,12 +191,22 @@ export const EXPENSE_CATEGORIES = [
   "Others"
 ];
 
-// Deprecated for strict usage, but kept for migration if needed.
-// The source of truth for Tax Categories is now EXPENSE_CATEGORIES.
-export const TAX_RELIEF_CATEGORIES = [
-  "Parent Nursing Care", "Medical Checkup", "Books", 
-  "Vaccination", "Insurance", "Lifestyle", "Sports Equipment",
-  "PRS", "SSPN", "Voluntary contributions to EPF"
+// Strictly Eligible Tax Relief Categories (Used for Tax Module Dropdown)
+export const ELIGIBLE_TAX_CATEGORIES = [
+  "Insurance",
+  "Children education expenses", 
+  "Parent Nursing Care",
+  "Medical Checkup",
+  "Books",
+  "Vaccination",
+  "Lifestyle",
+  "Sports Equipment",
+  "PRS",
+  "SSPN",
+  "Voluntary contributions to EPF",
+  "SOCSO",
+  "EPF",
+  "Others" // Kept for edge cases, but user should be careful
 ];
 
 export const PARENT_EXPENSE_CATEGORIES = [

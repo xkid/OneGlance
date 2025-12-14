@@ -1,21 +1,21 @@
 
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { CURRENCIES, InvestmentItem } from '../types';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, AreaChart, Area } from 'recharts';
 import { Card, Button } from '../components/Shared';
-import { Upload, FileDown, Wallet, Heart, TrendingUp, FileText, Landmark, AlertCircle, Calendar, ArrowRight, ArrowDown, ArrowUp } from 'lucide-react';
+import { Upload, FileDown, Wallet, Heart, TrendingUp, FileText, Landmark, AlertCircle, Calendar, ArrowRight, ArrowDown, ArrowUp, Banknote } from 'lucide-react';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d', '#ffc658'];
 
 export const StatsView: React.FC = () => {
   const { data, exportDataJSON, importData, captureFundSnapshot } = useApp();
   const [importStatus, setImportStatus] = useState<string>('');
-  const [moduleView, setModuleView] = useState<'expenses' | 'parent' | 'invest' | 'tax' | 'fd'>('expenses');
+  const [moduleView, setModuleView] = useState<'expenses' | 'parent' | 'invest' | 'tax' | 'fd' | 'salary'>('expenses');
   const [selectedHistoryYear, setSelectedHistoryYear] = useState<number>(new Date().getFullYear());
   const [selectedTaxYear, setSelectedTaxYear] = useState<number>(new Date().getFullYear());
   const [selectedShareCurrency, setSelectedShareCurrency] = useState<string>('All');
+  const [selectedSalaryYear, setSelectedSalaryYear] = useState<number>(new Date().getFullYear());
 
   // Auto-capture fund snapshot on mount (throttled to once per day via context logic check)
   useEffect(() => {
@@ -280,6 +280,26 @@ export const StatsView: React.FC = () => {
   }, [data.fixedDeposits]);
 
 
+  // 6. SALARY STATS
+  const salaryData = useMemo(() => {
+      // Filter by selected year
+      const logs = data.salaryLogs.filter(s => s.month.startsWith(selectedSalaryYear.toString()));
+      
+      // Map to Chart Format
+      return logs.sort((a,b) => a.month.localeCompare(b.month)).map(s => {
+          const monthName = new Date(s.month + '-01').toLocaleDateString('default', { month: 'short' });
+          return {
+              name: monthName,
+              Basic: s.basic,
+              Allowances: s.mobile + s.transport + s.wellness,
+              Bonus: s.bonus + s.award + s.gesop,
+              Others: s.others,
+              Deductions: s.epf + s.eis + s.socso // Optional: visualize deductions
+          }
+      });
+  }, [data.salaryLogs, selectedSalaryYear]);
+
+
   // --- HANDLERS ---
   const handleExportJSON = () => {
     const json = exportDataJSON();
@@ -316,6 +336,7 @@ export const StatsView: React.FC = () => {
                 { id: 'parent', icon: <Heart size={16}/>, label: 'Parent' },
                 { id: 'invest', icon: <TrendingUp size={16}/>, label: 'Invest' },
                 { id: 'fd', icon: <Landmark size={16}/>, label: 'FD' },
+                { id: 'salary', icon: <Banknote size={16}/>, label: 'Salary' },
                 { id: 'tax', icon: <FileText size={16}/>, label: 'Tax' },
             ].map(m => (
                 <button 
@@ -370,6 +391,40 @@ export const StatsView: React.FC = () => {
                     </div>
                 </Card>
             </>
+        )}
+
+        {/* --- VIEW: SALARY --- */}
+        {moduleView === 'salary' && (
+             <div className="space-y-6">
+                <Card title="Salary Composition Breakdown">
+                     <div className="flex justify-between items-center mb-4">
+                        <div className="flex-1"></div>
+                        <select 
+                            value={selectedSalaryYear} 
+                            onChange={e => setSelectedSalaryYear(parseInt(e.target.value))}
+                            className="text-xs bg-gray-100 p-1.5 rounded-lg font-semibold border-none focus:ring-0"
+                        >
+                            {[2023, 2024, 2025, 2026, 2027].map(y => <option key={y} value={y}>{y}</option>)}
+                        </select>
+                     </div>
+                     <div className="h-[350px] w-full">
+                        {salaryData.length > 0 ? (
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={salaryData} margin={{ top: 5, right: 0, left: -20, bottom: 5 }}>
+                                    <XAxis dataKey="name" fontSize={10} tickLine={false} axisLine={false} />
+                                    <YAxis fontSize={10} tickLine={false} axisLine={false}/>
+                                    <Tooltip cursor={{fill: '#f3f4f6'}} />
+                                    <Legend wrapperStyle={{fontSize: '10px'}} />
+                                    <Bar dataKey="Basic" stackId="a" fill="#007AFF" />
+                                    <Bar dataKey="Allowances" stackId="a" fill="#34C759" />
+                                    <Bar dataKey="Bonus" stackId="a" fill="#FF9500" />
+                                    <Bar dataKey="Others" stackId="a" fill="#AF52DE" />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        ) : <div className="h-full flex items-center justify-center text-gray-400">No Salary Data for {selectedSalaryYear}</div>}
+                    </div>
+                </Card>
+             </div>
         )}
 
         {/* --- VIEW: INVEST --- */}

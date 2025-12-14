@@ -1,6 +1,7 @@
 
+
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { AppData, Transaction, ParentCareLog, InvestmentItem, DividendLog, TaxReliefItem, SaleLog, FixedDeposit, FundSnapshot, PurchaseLog } from '../types';
+import { AppData, Transaction, ParentCareLog, InvestmentItem, DividendLog, TaxReliefItem, SaleLog, FixedDeposit, FundSnapshot, PurchaseLog, SalaryLog } from '../types';
 
 interface AppContextType {
   data: AppData;
@@ -21,9 +22,11 @@ interface AppContextType {
   addFixedDeposit: (fd: FixedDeposit) => void;
   updateFixedDeposit: (fd: FixedDeposit) => void;
   deleteFixedDeposit: (id: string) => void;
+  addSalaryLog: (s: SalaryLog) => void;
+  deleteSalaryLog: (id: string) => void;
   importData: (jsonData: string) => boolean;
   exportDataJSON: () => string;
-  exportDataCSV: (module: 'expenses' | 'parent' | 'investments' | 'tax' | 'fd' | 'fund_history') => string;
+  exportDataCSV: (module: 'expenses' | 'parent' | 'investments' | 'tax' | 'fd' | 'fund_history' | 'salary') => string;
 }
 
 const defaultData: AppData = {
@@ -41,7 +44,8 @@ const defaultData: AppData = {
   sales: [],
   fundSnapshots: [],
   taxItems: [],
-  fixedDeposits: []
+  fixedDeposits: [],
+  salaryLogs: []
 };
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -71,6 +75,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (!parsed.fixedDeposits) parsed.fixedDeposits = [];
         // Migration: Ensure fundSnapshots exists
         if (!parsed.fundSnapshots) parsed.fundSnapshots = [];
+        // Migration: Ensure salaryLogs exists
+        if (!parsed.salaryLogs) parsed.salaryLogs = [];
 
         setData(parsed);
       } catch (e) {
@@ -288,6 +294,46 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setData(prev => ({ ...prev, fixedDeposits: prev.fixedDeposits.filter(fd => fd.id !== id) }));
   };
 
+  const addSalaryLog = (s: SalaryLog) => {
+      setData(prev => {
+          // Check for existing log for this month? Assuming multiple allowed, or overwrite.
+          // Let's assume append for now to be safe, but ideally check overlaps.
+          const newLogs = [...prev.salaryLogs, s];
+          
+          // SOCSO Sync Logic
+          let newTaxItems = prev.taxItems;
+          if (s.socso > 0) {
+              const year = parseInt(s.month.split('-')[0]);
+              // Check if a SOCSO entry for this salary log already exists (by ID reference or implicit)
+              // Since we don't have direct linking, we just add a new TaxReliefItem.
+              // We'll mark it with description "SOCSO - [Month]"
+              
+              const taxItem: TaxReliefItem = {
+                  id: 'socso-sync-' + s.id,
+                  year: year,
+                  category: 'SOCSO',
+                  description: `SOCSO Deduction - ${s.month}`,
+                  amount: s.socso,
+                  date: `${s.month}-28`, // Approximate date
+                  hasEInvoice: false,
+                  fromExpenses: false // It's from Salary, effectively
+              };
+              newTaxItems = [...newTaxItems, taxItem];
+          }
+
+          return { ...prev, salaryLogs: newLogs, taxItems: newTaxItems };
+      });
+  };
+
+  const deleteSalaryLog = (id: string) => {
+      setData(prev => {
+          const newLogs = prev.salaryLogs.filter(s => s.id !== id);
+          // Remove associated SOCSO tax item if it exists
+          const newTaxItems = prev.taxItems.filter(t => t.id !== 'socso-sync-' + id);
+          return { ...prev, salaryLogs: newLogs, taxItems: newTaxItems };
+      });
+  };
+
   const importData = (jsonString: string): boolean => {
     try {
       const parsed = JSON.parse(jsonString);
@@ -305,6 +351,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (!parsed.sales) parsed.sales = [];
         if (!parsed.fixedDeposits) parsed.fixedDeposits = [];
         if (!parsed.fundSnapshots) parsed.fundSnapshots = [];
+        if (!parsed.salaryLogs) parsed.salaryLogs = [];
         
         setData(parsed);
         return true;
@@ -317,7 +364,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const exportDataJSON = () => JSON.stringify(data, null, 2);
 
-  const exportDataCSV = (module: 'expenses' | 'parent' | 'investments' | 'tax' | 'fd' | 'fund_history'): string => {
+  const exportDataCSV = (module: 'expenses' | 'parent' | 'investments' | 'tax' | 'fd' | 'fund_history' | 'salary'): string => {
     let header = "";
     let rows: string[] = [];
 
@@ -380,6 +427,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       rows = data.fundSnapshots.map(s => 
         `${s.date},${s.totalCost.toFixed(2)},${s.totalValue.toFixed(2)}`
       );
+    } else if (module === 'salary') {
+      header = "Month,Basic,Mobile,Transport,Wellness,Award,Bonus,GESOP,EPF,EIS,SOCSO,Others,Notes";
+      rows = data.salaryLogs.map(s =>
+        `${s.month},${s.basic},${s.mobile},${s.transport},${s.wellness},${s.award},${s.bonus},${s.gesop},${s.epf},${s.eis},${s.socso},${s.others},"${s.notes || ''}"`
+      );
     }
 
     return [header, ...rows].join("\n");
@@ -392,6 +444,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       captureFundSnapshot,
       addTaxItem, updateTaxItem, deleteTaxItem, 
       addFixedDeposit, updateFixedDeposit, deleteFixedDeposit,
+      addSalaryLog, deleteSalaryLog,
       importData, exportDataJSON, exportDataCSV 
     }}>
       {children}
