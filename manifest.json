@@ -3,8 +3,8 @@
   "short_name": "OneGlance",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#F2F2F7",
-  "theme_color": "#007AFF",
+  "background_color": "#FFD700",
+  "theme_color": "#FF8C00",
   "icons": [
     {
       "src": "/icon.svg",

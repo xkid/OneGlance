@@ -1,12 +1,39 @@
 <svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
 <rect width="512" height="512" rx="120" fill="url(#paint0_linear)"/>
-<rect x="100" y="280" width="80" height="132" rx="40" fill="white"/>
-<rect x="216" y="190" width="80" height="222" rx="40" fill="white"/>
-<rect x="332" y="100" width="80" height="312" rx="40" fill="white"/>
+
+<!-- Ears -->
+<path d="M160 200 L140 110 L240 170 Z" fill="white" stroke="white" stroke-width="20" stroke-linejoin="round"/>
+<path d="M352 200 L372 110 L272 170 Z" fill="white" stroke="white" stroke-width="20" stroke-linejoin="round"/>
+
+<!-- Head -->
+<circle cx="256" cy="280" r="130" fill="white"/>
+
+<!-- Paws Up -->
+<circle cx="100" cy="220" r="45" fill="white"/>
+<circle cx="412" cy="220" r="45" fill="white"/>
+
+<!-- Paw Pads -->
+<circle cx="100" cy="220" r="20" fill="#FFA500"/>
+<circle cx="412" cy="220" r="20" fill="#FFA500"/>
+
+<!-- Face Details -->
+<!-- Eyes (Closed Happy ^ ^) -->
+<path d="M196 260 L216 240 L236 260" stroke="#FF8C00" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M276 260 L296 240 L316 260" stroke="#FF8C00" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+
+<!-- Mouth -->
+<path d="M236 310 Q256 330 276 310" stroke="#FF8C00" stroke-width="12" stroke-linecap="round"/>
+
+<!-- Whiskers -->
+<path d="M160 300 H120" stroke="#FF8C00" stroke-width="8" stroke-linecap="round"/>
+<path d="M160 325 H130" stroke="#FF8C00" stroke-width="8" stroke-linecap="round"/>
+<path d="M352 300 H392" stroke="#FF8C00" stroke-width="8" stroke-linecap="round"/>
+<path d="M352 325 H382" stroke="#FF8C00" stroke-width="8" stroke-linecap="round"/>
+
 <defs>
 <linearGradient id="paint0_linear" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
-<stop stop-color="#007AFF"/>
-<stop offset="1" stop-color="#0055FF"/>
+<stop stop-color="#FFD700"/>
+<stop offset="1" stop-color="#FF8C00"/>
 </linearGradient>
 </defs>
 </svg>
