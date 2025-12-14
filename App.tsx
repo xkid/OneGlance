@@ -18,11 +18,16 @@ const App: React.FC = () => {
   useEffect(() => {
     const generateAppleTouchIcon = () => {
         const link = document.getElementById('apple-touch-icon') as HTMLLinkElement;
-        if (!link) return;
+        if (!link) {
+            console.warn("Apple Touch Icon link tag not found");
+            return;
+        }
 
         // Create an image element to load the SVG
         const img = new Image();
-        img.src = '/icon.svg';
+        // Add timestamp to prevent caching issues
+        img.src = '/icon.svg?v=' + new Date().getTime();
+        img.crossOrigin = 'anonymous'; // Good practice even for local
         
         // Ensure the image loads before drawing
         img.onload = () => {
@@ -31,6 +36,8 @@ const App: React.FC = () => {
             canvas.height = 512;
             const ctx = canvas.getContext('2d');
             if (ctx) {
+                // Clear canvas first
+                ctx.clearRect(0, 0, 512, 512);
                 // Draw the SVG onto the canvas
                 ctx.drawImage(img, 0, 0, 512, 512);
                 try {
@@ -38,14 +45,22 @@ const App: React.FC = () => {
                     const pngUrl = canvas.toDataURL('image/png');
                     // Update the link tag
                     link.href = pngUrl;
+                    link.setAttribute('sizes', '180x180'); // Standard iOS size hint
+                    console.log("iOS Icon generated successfully");
                 } catch (e) {
-                    console.error("Failed to generate iOS icon", e);
+                    console.error("Failed to generate iOS icon data URI", e);
                 }
             }
         };
+
+        img.onerror = (e) => {
+            console.error("Failed to load icon.svg for iOS generation", e);
+        }
     };
 
-    generateAppleTouchIcon();
+    // Run with a slight delay to ensure DOM is fully ready and resources available
+    const timer = setTimeout(generateAppleTouchIcon, 500);
+    return () => clearTimeout(timer);
   }, []);
 
   const renderView = () => {
