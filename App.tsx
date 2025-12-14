@@ -1,6 +1,6 @@
 
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AppProvider } from './context/AppContext';
 import { ExpensesView } from './views/Expenses';
 import { ParentCareView } from './views/ParentCare';
@@ -13,6 +13,40 @@ import { Wallet, Heart, TrendingUp, FileText, PieChart, Landmark, Banknote } fro
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'expenses' | 'parent' | 'invest' | 'fd' | 'salary' | 'tax' | 'stats'>('expenses');
+
+  // iOS Icon Fix: Convert SVG to PNG client-side for "Add to Home Screen" support
+  useEffect(() => {
+    const generateAppleTouchIcon = () => {
+        const link = document.getElementById('apple-touch-icon') as HTMLLinkElement;
+        if (!link) return;
+
+        // Create an image element to load the SVG
+        const img = new Image();
+        img.src = '/icon.svg';
+        
+        // Ensure the image loads before drawing
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512;
+            canvas.height = 512;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+                // Draw the SVG onto the canvas
+                ctx.drawImage(img, 0, 0, 512, 512);
+                try {
+                    // Convert to PNG data URI
+                    const pngUrl = canvas.toDataURL('image/png');
+                    // Update the link tag
+                    link.href = pngUrl;
+                } catch (e) {
+                    console.error("Failed to generate iOS icon", e);
+                }
+            }
+        };
+    };
+
+    generateAppleTouchIcon();
+  }, []);
 
   const renderView = () => {
     switch (activeTab) {
