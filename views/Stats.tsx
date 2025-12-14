@@ -3,19 +3,24 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { CURRENCIES, InvestmentItem } from '../types';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, AreaChart, Area } from 'recharts';
-import { Card, Button } from '../components/Shared';
-import { Upload, FileDown, Wallet, Heart, TrendingUp, FileText, Landmark, AlertCircle, Calendar, ArrowRight, ArrowDown, ArrowUp, Banknote } from 'lucide-react';
+import { Card, Button, Input } from '../components/Shared';
+import { Upload, FileDown, Wallet, Heart, TrendingUp, FileText, Landmark, AlertCircle, Calendar, ArrowRight, ArrowDown, ArrowUp, Banknote, Trash2, AlertTriangle, X } from 'lucide-react';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d', '#ffc658'];
 
 export const StatsView: React.FC = () => {
-  const { data, exportDataJSON, importData, captureFundSnapshot } = useApp();
+  const { data, exportDataJSON, importData, captureFundSnapshot, resetData } = useApp();
   const [importStatus, setImportStatus] = useState<string>('');
   const [moduleView, setModuleView] = useState<'expenses' | 'parent' | 'invest' | 'tax' | 'fd' | 'salary'>('expenses');
   const [selectedHistoryYear, setSelectedHistoryYear] = useState<number>(new Date().getFullYear());
   const [selectedTaxYear, setSelectedTaxYear] = useState<number>(new Date().getFullYear());
   const [selectedShareCurrency, setSelectedShareCurrency] = useState<string>('All');
   const [selectedSalaryYear, setSelectedSalaryYear] = useState<number>(new Date().getFullYear());
+
+  // Reset Modal State
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [resetCode, setResetCode] = useState('');
+  const [resetInput, setResetInput] = useState('');
 
   // Auto-capture fund snapshot on mount (throttled to once per day via context logic check)
   useEffect(() => {
@@ -323,6 +328,22 @@ export const StatsView: React.FC = () => {
           }
       };
       reader.readAsText(file);
+  };
+
+  const initiateReset = () => {
+      // Generate a random 6-character alphanumeric code
+      const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+      setResetCode(code);
+      setResetInput('');
+      setShowResetModal(true);
+  };
+
+  const confirmReset = () => {
+      if (resetInput === resetCode) {
+          resetData();
+          setShowResetModal(false);
+          // Optional: You could refresh the page or show a toast here
+      }
   };
 
   return (
@@ -784,8 +805,60 @@ export const StatsView: React.FC = () => {
                     </Button>
                 </div>
                 {importStatus && <p className="text-center text-sm font-semibold text-green-600">{importStatus}</p>}
+
+                {/* Reset Data Button */}
+                <Button onClick={initiateReset} variant="danger" className="w-full mt-4 flex justify-center items-center gap-2">
+                    <Trash2 size={18} /> Reset All Data
+                </Button>
             </div>
         </Card>
+
+        {/* RESET CONFIRMATION MODAL */}
+        {showResetModal && (
+            <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+                <div className="bg-white rounded-2xl w-full max-w-sm p-5 space-y-4 shadow-xl">
+                    <div className="flex justify-between items-center border-b border-gray-100 pb-2">
+                        <div className="flex items-center gap-2 text-red-600 font-bold">
+                            <AlertTriangle size={20}/>
+                            <h3>Reset Application Data</h3>
+                        </div>
+                        <button onClick={() => setShowResetModal(false)} className="text-gray-400 hover:text-gray-600">
+                            <X size={20}/>
+                        </button>
+                    </div>
+                    
+                    <div className="text-center space-y-3">
+                        <p className="text-sm text-gray-600">
+                            This action will <span className="font-bold text-red-600">permanently delete</span> all your transactions, investments, and settings. This cannot be undone.
+                        </p>
+                        <p className="text-xs text-gray-500 uppercase tracking-wide">Type the code below to confirm</p>
+                        <div className="bg-gray-100 p-3 rounded-lg border border-gray-200">
+                            <p className="font-mono text-2xl font-bold tracking-widest text-gray-800 select-none">{resetCode}</p>
+                        </div>
+                    </div>
+
+                    <Input 
+                        value={resetInput} 
+                        onChange={e => setResetInput(e.target.value)} 
+                        placeholder="Enter code here" 
+                        className="text-center font-bold tracking-widest uppercase"
+                        autoFocus
+                    />
+
+                    <div className="flex gap-2">
+                         <Button variant="secondary" onClick={() => setShowResetModal(false)} className="flex-1">Cancel</Button>
+                         <Button 
+                            variant="danger" 
+                            onClick={confirmReset} 
+                            disabled={resetInput !== resetCode}
+                            className={`flex-1 ${resetInput !== resetCode ? 'opacity-50 cursor-not-allowed' : ''}`}
+                         >
+                             Confirm Reset
+                         </Button>
+                    </div>
+                </div>
+            </div>
+        )}
     </div>
   );
 };

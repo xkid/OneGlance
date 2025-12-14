@@ -24,6 +24,7 @@ interface AppContextType {
   deleteFixedDeposit: (id: string) => void;
   addSalaryLog: (s: SalaryLog) => void;
   deleteSalaryLog: (id: string) => void;
+  resetData: () => void;
   importData: (jsonData: string) => boolean;
   exportDataJSON: () => string;
   exportDataCSV: (module: 'expenses' | 'parent' | 'investments' | 'tax' | 'fd' | 'fund_history' | 'salary') => string;
@@ -334,6 +335,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       });
   };
 
+  const resetData = () => {
+    // Reset to factory default data
+    setData(defaultData);
+  };
+
   const importData = (jsonString: string): boolean => {
     try {
       const parsed = JSON.parse(jsonString);
@@ -445,6 +451,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       addTaxItem, updateTaxItem, deleteTaxItem, 
       addFixedDeposit, updateFixedDeposit, deleteFixedDeposit,
       addSalaryLog, deleteSalaryLog,
+      resetData,
       importData, exportDataJSON, exportDataCSV 
     }}>
       {children}
