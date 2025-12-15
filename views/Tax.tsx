@@ -21,6 +21,30 @@ export const TaxView: React.FC = () => {
   // Edit Modal State
   const [editingItem, setEditingItem] = useState<any | null>(null);
 
+  // Dynamic Year Generation
+  const yearOptions = useMemo(() => {
+      const currentYear = new Date().getFullYear();
+      const years = new Set<number>();
+      
+      // Default range 2021 -> Current + 2
+      for (let y = 2021; y <= currentYear + 2; y++) {
+          years.add(y);
+      }
+
+      // Scan Manual Items
+      data.taxItems.forEach(t => years.add(t.year));
+
+      // Scan Transactions
+      data.transactions.forEach(t => {
+          if (t.isTaxRelief) {
+              const y = parseInt(t.date.split('-')[0]);
+              if (!isNaN(y)) years.add(y);
+          }
+      });
+
+      return Array.from(years).sort((a, b) => b - a);
+  }, [data.taxItems, data.transactions]);
+
   // Combine Manual Tax Items + Synced Expenses
   const allItems = useMemo(() => {
     const manualItems = data.taxItems.filter(t => t.year === selectedYear).map(t => ({...t, isManual: true}));
@@ -162,7 +186,7 @@ export const TaxView: React.FC = () => {
                 onChange={e => setSelectedYear(parseInt(e.target.value))}
                 className="bg-gray-100 rounded-lg px-3 py-1 text-sm font-semibold focus:outline-none"
             >
-                {[2023, 2024, 2025, 2026].map(y => <option key={y} value={y}>{y}</option>)}
+                {yearOptions.map(y => <option key={y} value={y}>{y}</option>)}
             </select>
             <button onClick={handleDownload} className="p-2 bg-gray-100 rounded-full text-gray-600">
                 <Download size={20} />

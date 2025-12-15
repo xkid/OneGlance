@@ -27,17 +27,41 @@ export const StatsView: React.FC = () => {
      captureFundSnapshot();
   }, []);
 
-  // Generate Year Options: 2021 to Current + 5 Years
+  // Generate Year Options dynamically based on data
   const yearOptions = useMemo(() => {
       const currentYear = new Date().getFullYear();
-      const startYear = 2021;
-      const endYear = currentYear + 5;
-      const years = [];
-      for(let y = startYear; y <= endYear; y++) {
-          years.push(y);
+      const years = new Set<number>();
+      
+      // Add default range (2021 to Current + 2)
+      for (let y = 2021; y <= currentYear + 2; y++) {
+          years.add(y);
       }
-      return years;
-  }, []);
+
+      // Add from Transactions
+      data.transactions.forEach(t => {
+          const y = parseInt(t.date.split('-')[0]);
+          if (!isNaN(y)) years.add(y);
+      });
+
+      // Add from Tax Items
+      data.taxItems.forEach(t => {
+          years.add(t.year);
+      });
+
+      // Add from Investments
+      data.investments.forEach(i => {
+          const y = parseInt(i.purchaseDate.split('-')[0]);
+          if (!isNaN(y)) years.add(y);
+          if (i.purchaseHistory) {
+              i.purchaseHistory.forEach(h => {
+                  const hy = parseInt(h.date.split('-')[0]);
+                  if (!isNaN(hy)) years.add(hy);
+              });
+          }
+      });
+
+      return Array.from(years).sort((a, b) => b - a); // Descending
+  }, [data.transactions, data.taxItems, data.investments]);
 
   // --- DATA PREPARATION ---
 
@@ -257,6 +281,34 @@ export const StatsView: React.FC = () => {
           value: breakdown[cat]
       })).sort((a,b) => b.value - a.value);
   }, [data.taxItems, data.transactions, selectedTaxYear]);
+
+  // NEW: PCB / Tax Paid Stats
+  const pcbStats = useMemo(() => {
+      const txs = data.transactions.filter(t => t.category === 'PCB' || t.category === 'Income Tax');
+      
+      // Annual Trend
+      const annual = txs.reduce((acc, t) => {
+          const y = parseInt(t.date.split('-')[0]);
+          acc[y] = (acc[y] || 0) + t.amount;
+          return acc;
+      }, {} as Record<number, number>);
+      const annualChart = Object.keys(annual).map(y => ({ name: y, Amount: annual[parseInt(y)] })).sort((a,b) => a.name.localeCompare(b.name));
+
+      // Monthly for Selected Year
+      const monthlyBuckets = Array.from({length: 12}, (_, i) => ({
+          name: new Date(selectedTaxYear, i, 1).toLocaleDateString('default', {month:'short'}),
+          Amount: 0
+      }));
+      txs.filter(t => t.date.startsWith(selectedTaxYear.toString())).forEach(t => {
+          const m = parseInt(t.date.split('-')[1]) - 1;
+          if(monthlyBuckets[m]) monthlyBuckets[m].Amount += t.amount;
+      });
+
+      const totalYear = monthlyBuckets.reduce((sum, b) => sum + b.Amount, 0);
+
+      return { annualChart, monthlyBuckets, totalYear };
+  }, [data.transactions, selectedTaxYear]);
+
 
   // 5. PARENT & FD DATA (Existing logic)
   const parentTrend = useMemo(() => {
@@ -494,7 +546,7 @@ export const StatsView: React.FC = () => {
                         onChange={e => setSelectedSalaryYear(parseInt(e.target.value))}
                         className="text-xs bg-gray-100 p-1.5 rounded-lg font-semibold border-none focus:ring-0"
                     >
-                        {[2023, 2024, 2025, 2026, 2027].map(y => <option key={y} value={y}>{y}</option>)}
+                        {yearOptions.map(y => <option key={y} value={y}>{y}</option>)}
                     </select>
                 </div>
 
@@ -846,17 +898,54 @@ export const StatsView: React.FC = () => {
         {/* --- VIEW: TAX --- */}
         {moduleView === 'tax' && (
             <div className="space-y-6">
-                <Card title="Tax Relief by Category">
-                     <div className="flex justify-between items-center mb-4">
-                        <div className="flex-1"></div>
-                        <select 
-                            value={selectedTaxYear} 
-                            onChange={e => setSelectedTaxYear(parseInt(e.target.value))}
-                            className="text-xs bg-gray-100 p-1.5 rounded-lg font-semibold border-none focus:ring-0"
-                        >
-                            {[2023, 2024, 2025, 2026, 2027].map(y => <option key={y} value={y}>{y}</option>)}
-                        </select>
-                     </div>
+                {/* Global Tax Year Selector */}
+                <div className="flex justify-end items-center bg-white p-2 rounded-xl border border-gray-100 shadow-sm">
+                    <span className="text-xs font-semibold text-gray-500 mr-2 uppercase">Analysis Year:</span>
+                    <select 
+                        value={selectedTaxYear} 
+                        onChange={e => setSelectedTaxYear(parseInt(e.target.value))}
+                        className="bg-gray-100 rounded-lg px-3 py-1 text-sm font-bold text-gray-800 focus:outline-none"
+                    >
+                        {yearOptions.map(y => <option key={y} value={y}>{y}</option>)}
+                    </select>
+                </div>
+
+                {/* PCB SECTION */}
+                <Card title={`PCB / Tax Paid Analysis (${selectedTaxYear})`}>
+                    <div className="mb-4">
+                        <p className="text-xs text-gray-500 uppercase">Total Paid in {selectedTaxYear}</p>
+                        <p className="text-2xl font-bold text-teal-600">MYR {pcbStats.totalYear.toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
+                    </div>
+                    
+                    <div className="h-[200px] w-full mb-6">
+                        <h4 className="text-xs font-semibold text-gray-400 mb-2">Monthly Breakdown ({selectedTaxYear})</h4>
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={pcbStats.monthlyBuckets}>
+                                <XAxis dataKey="name" fontSize={10} tickLine={false} axisLine={false}/>
+                                <YAxis fontSize={10} tickLine={false} axisLine={false}/>
+                                <Tooltip cursor={{fill: '#f3f4f6'}} />
+                                <Bar dataKey="Amount" fill="#0D9488" radius={[4, 4, 0, 0]} />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+
+                    <div className="h-[200px] w-full pt-4 border-t border-gray-100">
+                        <h4 className="text-xs font-semibold text-gray-400 mb-2">Annual PCB Trend</h4>
+                        {pcbStats.annualChart.length > 0 ? (
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={pcbStats.annualChart}>
+                                    <XAxis dataKey="name" fontSize={10} tickLine={false} axisLine={false}/>
+                                    <YAxis fontSize={10} tickLine={false} axisLine={false}/>
+                                    <Tooltip cursor={{fill: '#f3f4f6'}} />
+                                    <Bar dataKey="Amount" fill="#2DD4BF" radius={[4, 4, 0, 0]} barSize={40} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        ) : <div className="h-full flex items-center justify-center text-gray-300 text-xs">No historical data</div>}
+                    </div>
+                </Card>
+
+                {/* RELIEF SECTION */}
+                <Card title={`Tax Relief by Category (${selectedTaxYear})`}>
                      <div className="h-[300px] w-full">
                         {taxByCategory.length > 0 ? (
                             <ResponsiveContainer width="100%" height="100%">
@@ -871,7 +960,7 @@ export const StatsView: React.FC = () => {
                     </div>
                 </Card>
 
-                <Card title="Annual Trend (Total Eligible)">
+                <Card title="Annual Relief Trend (Total Eligible)">
                     <div className="h-[250px] w-full mt-2">
                         {taxByYear.length > 0 ? (
                             <ResponsiveContainer width="100%" height="100%">
