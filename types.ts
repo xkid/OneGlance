@@ -193,7 +193,8 @@ export const EXPENSE_CATEGORIES = [
   "Household groceries", 
   "Meal supplement groceries", 
   "Social expenses", 
-  "Income Tax", 
+  "Income Tax",
+  "PCB", // New: Tax tracking
   "BSC share purchase", 
   "Misc mandatory deductions from monthly salary",
   "Parent Nursing Care",
@@ -211,7 +212,6 @@ export const EXPENSE_CATEGORIES = [
   "EPF EE",
   "EIS EE",
   "SOCSO"
-  // Removed EIS, EPF ER, EIS ER
 ];
 
 // Categories that do not affect the actual wallet balance (Info Only)
@@ -228,7 +228,8 @@ export const EXCLUDED_FROM_BALANCE_CATEGORIES = [
   "GESOP",
   "EPF EE",
   "EIS EE",
-  "SOCSO"
+  "SOCSO",
+  "PCB" // New: Tax tracking only
 ];
 
 // Strictly Eligible Tax Relief Categories (Used for Tax Module Dropdown)

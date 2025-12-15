@@ -1,10 +1,10 @@
 
-
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { ELIGIBLE_TAX_CATEGORIES } from '../types';
 import { Card, Button, Input, Select, Badge } from '../components/Shared';
 import { FileText, Plus, Trash2, Download, Link2, Edit2, X, Save } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
 export const TaxView: React.FC = () => {
   const { data, addTaxItem, deleteTaxItem, updateTaxItem, updateTransaction, exportDataCSV } = useApp();
@@ -22,7 +22,7 @@ export const TaxView: React.FC = () => {
   const [editingItem, setEditingItem] = useState<any | null>(null);
 
   // Combine Manual Tax Items + Synced Expenses
-  const displayItems = useMemo(() => {
+  const allItems = useMemo(() => {
     const manualItems = data.taxItems.filter(t => t.year === selectedYear).map(t => ({...t, isManual: true}));
     
     // Sync from Expenses where isTaxRelief is true
@@ -44,7 +44,40 @@ export const TaxView: React.FC = () => {
     return [...manualItems, ...syncedItems].sort((a,b) => b.date.localeCompare(a.date));
   }, [data.taxItems, data.transactions, selectedYear]);
 
-  const totalRelief = displayItems.reduce((sum, t) => sum + t.amount, 0);
+  // Separate Reliefs vs PCB (Tax Paid)
+  const reliefItems = allItems.filter(t => t.category !== 'PCB' && t.category !== 'Income Tax');
+  const taxPaidItems = allItems.filter(t => t.category === 'PCB' || t.category === 'Income Tax');
+
+  const totalRelief = reliefItems.reduce((sum, t) => sum + t.amount, 0);
+  const totalTaxPaid = taxPaidItems.reduce((sum, t) => sum + t.amount, 0);
+
+  // DATA FOR CHARTS
+  const taxReliefByCategory = useMemo(() => {
+      const breakdown: Record<string, number> = {};
+      reliefItems.forEach(t => {
+          breakdown[t.category] = (breakdown[t.category] || 0) + t.amount;
+      });
+      return Object.keys(breakdown).map(cat => ({
+          name: cat,
+          value: breakdown[cat]
+      })).sort((a,b) => b.value - a.value);
+  }, [reliefItems]);
+
+  const pcbMonthlyData = useMemo(() => {
+      const buckets = Array.from({length: 12}, (_, i) => ({
+          name: new Date(selectedYear, i, 1).toLocaleDateString('default', {month:'short'}),
+          PCB: 0
+      }));
+      
+      taxPaidItems.forEach(t => {
+          const monthIdx = parseInt(t.date.split('-')[1]) - 1;
+          if (buckets[monthIdx]) {
+              buckets[monthIdx].PCB += t.amount;
+          }
+      });
+      return buckets;
+  }, [taxPaidItems, selectedYear]);
+
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -137,9 +170,43 @@ export const TaxView: React.FC = () => {
         </div>
       </div>
 
-      <Card className="bg-indigo-600 text-white">
-          <p className="text-indigo-200 text-xs uppercase">Total Claimable {selectedYear}</p>
-          <p className="text-3xl font-bold mt-1">MYR {totalRelief.toLocaleString()}</p>
+      <div className="grid grid-cols-2 gap-4">
+          <Card className="bg-indigo-600 text-white">
+              <p className="text-indigo-200 text-[10px] uppercase">Total Relief Claimable</p>
+              <p className="text-2xl font-bold mt-1">MYR {totalRelief.toLocaleString()}</p>
+          </Card>
+          <Card className="bg-teal-600 text-white">
+              <p className="text-teal-200 text-[10px] uppercase">Total Tax Paid (PCB)</p>
+              <p className="text-2xl font-bold mt-1">MYR {totalTaxPaid.toLocaleString()}</p>
+          </Card>
+      </div>
+
+      <Card title="Monthly Tax Paid (PCB)">
+          <div className="h-[200px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={pcbMonthlyData} margin={{ top: 5, right: 0, left: -20, bottom: 0 }}>
+                      <XAxis dataKey="name" fontSize={10} tickLine={false} axisLine={false} interval={0} />
+                      <YAxis fontSize={10} tickLine={false} axisLine={false}/>
+                      <Tooltip cursor={{fill: '#f3f4f6'}} />
+                      <Bar dataKey="PCB" fill="#0D9488" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+              </ResponsiveContainer>
+          </div>
+      </Card>
+
+      <Card title="Relief by Category">
+          <div className="h-[250px] w-full">
+              {taxReliefByCategory.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={taxReliefByCategory} margin={{ top: 5, right: 0, left: -20, bottom: 5 }}>
+                          <XAxis dataKey="name" fontSize={10} tickLine={false} axisLine={false} interval={0} angle={-45} textAnchor="end" height={80}/>
+                          <YAxis fontSize={10} tickLine={false} axisLine={false}/>
+                          <Tooltip cursor={{fill: '#f3f4f6'}} />
+                          <Bar dataKey="value" fill="#6366F1" radius={[4, 4, 0, 0]} name="Amount" />
+                      </BarChart>
+                  </ResponsiveContainer>
+              ) : <div className="h-full flex items-center justify-center text-gray-400">No Relief Data</div>}
+          </div>
       </Card>
 
       <Card title="Add Manual Record">
@@ -163,8 +230,9 @@ export const TaxView: React.FC = () => {
       </Card>
 
       <div className="space-y-3">
-          {displayItems.length === 0 ? <p className="text-gray-400 text-center py-4">No records for {selectedYear}</p> : 
-            displayItems.map(t => (
+          <h3 className="font-semibold text-gray-700 ml-1">Records for {selectedYear}</h3>
+          {allItems.length === 0 ? <p className="text-gray-400 text-center py-4">No records found.</p> : 
+            allItems.map(t => (
                 <div key={t.id} className={`bg-white p-4 rounded-xl shadow-sm border ${t.isManual ? 'border-gray-100' : 'border-blue-100 bg-blue-50/20'} flex justify-between items-center`}>
                     <div>
                         <div className="flex items-center gap-2">
@@ -181,7 +249,6 @@ export const TaxView: React.FC = () => {
                     <div className="flex items-center gap-3">
                         <div className="text-right">
                            <span className="font-bold text-gray-800 block">{t.amount.toFixed(2)}</span>
-                           {/* Allow edit on manual. Synced items usually edited at source, but logic added just in case */}
                            <button 
                                 onClick={() => handleEditClick(t)}
                                 className="text-[10px] text-blue-600 hover:underline mt-1 inline-flex items-center gap-1"

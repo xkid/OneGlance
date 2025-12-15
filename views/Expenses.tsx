@@ -1,18 +1,20 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
-import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, EXCLUDED_FROM_BALANCE_CATEGORIES } from '../types';
+import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, EXCLUDED_FROM_BALANCE_CATEGORIES, Transaction } from '../types';
 import { Card, Button, Input, Select, Badge } from '../components/Shared';
-import { Plus, Trash2, AlertTriangle, Download, ChevronLeft, ChevronRight, CheckSquare, Calendar, Settings, FileText, ChevronDown, Info } from 'lucide-react';
+import { Plus, Trash2, AlertTriangle, Download, ChevronLeft, ChevronRight, CheckSquare, Calendar, Settings, FileText, ChevronDown, Info, Edit2, Save, X } from 'lucide-react';
 
 export const ExpensesView: React.FC = () => {
-  const { data, addTransaction, deleteTransaction, exportDataCSV } = useApp();
+  const { data, addTransaction, deleteTransaction, updateTransaction, exportDataCSV } = useApp();
   
   // Transaction Form State
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
   const [type, setType] = useState<'income' | 'expense'>('expense');
   const [category, setCategory] = useState(EXPENSE_CATEGORIES[0]);
+  const [customCategory, setCustomCategory] = useState(''); // New: For "Others" free text
   const [inputDate, setInputDate] = useState(new Date().toISOString().split('T')[0]);
   
   // Tax Relief Extended State
@@ -47,16 +49,24 @@ export const ExpensesView: React.FC = () => {
 
   // Update category options when type changes
   useEffect(() => {
-      setCategory(type === 'expense' ? EXPENSE_CATEGORIES[0] : INCOME_CATEGORIES[0]);
-      if (type === 'income') setIsTaxRelief(false);
-  }, [type]);
+      // Only reset if not editing (or if editing but type mismatches which shouldn't happen usually)
+      if (!editingId) {
+          setCategory(type === 'expense' ? EXPENSE_CATEGORIES[0] : INCOME_CATEGORIES[0]);
+          setCustomCategory('');
+          if (type === 'income') setIsTaxRelief(false);
+      }
+  }, [type, editingId]);
 
   // Handle Default Amounts for specific recording-only income categories
+  // & PCB Logic
   useEffect(() => {
-      if (category === "Mobile phone allowances") {
+      if (category === "Mobile phone allowances" && !amount) {
           setAmount("150");
-      } else if (category === "Transportation allowance") {
+      } else if (category === "Transportation allowance" && !amount) {
           setAmount("2000");
+      } else if (category === "PCB") {
+          // PCB specific logic: Auto check Tax Relief (for sync) and it is Excluded (handled in submit)
+          setIsTaxRelief(true);
       }
   }, [category]);
 
@@ -103,30 +113,72 @@ export const ExpensesView: React.FC = () => {
   const expenseRatio = monthlyStats.income > 0 ? (monthlyStats.expense / monthlyStats.income) : 0;
   const isWarning = expenseRatio >= 0.8;
 
+  const resetForm = () => {
+      setEditingId(null);
+      setAmount('');
+      setDescription('');
+      setCategory(type === 'expense' ? EXPENSE_CATEGORIES[0] : INCOME_CATEGORIES[0]);
+      setCustomCategory('');
+      setIsTaxRelief(false);
+      setReceiptNumber('');
+      setHasEInvoice(false);
+      setInputDate(new Date().toISOString().split('T')[0]);
+  };
+
+  const handleEdit = (t: Transaction) => {
+      setEditingId(t.id);
+      setType(t.type);
+      
+      const isStandard = (t.type === 'expense' ? EXPENSE_CATEGORIES : INCOME_CATEGORIES).includes(t.category);
+      if (isStandard && t.category !== 'Others') {
+          setCategory(t.category);
+          setCustomCategory('');
+      } else {
+          setCategory('Others');
+          setCustomCategory(t.category);
+      }
+
+      setAmount(t.amount.toString());
+      setDescription(t.description);
+      setInputDate(t.date);
+      setIsTaxRelief(t.isTaxRelief || false);
+      setReceiptNumber(t.receiptNumber || '');
+      setHasEInvoice(t.hasEInvoice || false);
+      
+      // Scroll to top to see form
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!amount) return;
     
-    // Check if recording only
-    const isExcluded = EXCLUDED_FROM_BALANCE_CATEGORIES.includes(category);
+    // Determine final category name
+    const finalCategory = (category === 'Others' && customCategory.trim()) ? customCategory.trim() : category;
 
-    addTransaction({
-      id: Date.now().toString(),
+    // Check if recording only (PCB is now in this list)
+    const isExcluded = EXCLUDED_FROM_BALANCE_CATEGORIES.includes(finalCategory);
+
+    const payload: Transaction = {
+      id: editingId || Date.now().toString(),
       date: inputDate,
-      description: description || category, 
+      description: description || finalCategory, 
       amount: parseFloat(amount),
-      category,
+      category: finalCategory,
       type,
       isTaxRelief: type === 'expense' ? isTaxRelief : false,
       isExcludedFromBalance: isExcluded,
       receiptNumber: (type === 'expense' && isTaxRelief) ? receiptNumber : undefined,
       hasEInvoice: (type === 'expense' && isTaxRelief) ? hasEInvoice : undefined
-    });
-    setAmount('');
-    setDescription('');
-    setIsTaxRelief(false);
-    setReceiptNumber('');
-    setHasEInvoice(false);
+    };
+
+    if (editingId) {
+        updateTransaction(payload);
+    } else {
+        addTransaction(payload);
+    }
+    
+    resetForm();
   };
 
   const handleDownload = () => {
@@ -271,7 +323,7 @@ export const ExpensesView: React.FC = () => {
       </Card>
 
       {/* Input Form */}
-      <Card title="New Transaction">
+      <Card title={editingId ? "Edit Transaction" : "New Transaction"}>
         <form onSubmit={handleSubmit} className="space-y-4">
             <div className="flex gap-2">
                 <button type="button" onClick={() => setType('expense')} className={`flex-1 py-2 rounded-lg text-sm font-medium ${type === 'expense' ? 'bg-red-100 text-red-700 ring-2 ring-red-500 ring-offset-1' : 'bg-gray-50 text-gray-600'}`}>Expense</button>
@@ -291,14 +343,27 @@ export const ExpensesView: React.FC = () => {
                 <Input type="number" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} label="Amount" placeholder="0.00" required />
             </div>
             <Input value={description} onChange={e => setDescription(e.target.value)} label="Description" placeholder={type === 'income' ? 'e.g. Salary' : 'e.g. Lunch'} />
-            <Select value={category} onChange={e => setCategory(e.target.value)} label="Category">
-                {categoryOptions.map(c => <option key={c} value={c}>{c}</option>)}
-            </Select>
+            
+            <div>
+                <Select value={category} onChange={e => setCategory(e.target.value)} label="Category">
+                    {categoryOptions.map(c => <option key={c} value={c}>{c}</option>)}
+                </Select>
+                {category === 'Others' && (
+                    <div className="mt-2 animate-fadeIn">
+                        <Input 
+                            value={customCategory} 
+                            onChange={e => setCustomCategory(e.target.value)} 
+                            placeholder="Enter custom category name..."
+                            autoFocus
+                        />
+                    </div>
+                )}
+            </div>
 
-            {EXCLUDED_FROM_BALANCE_CATEGORIES.includes(category) && (
+            {(EXCLUDED_FROM_BALANCE_CATEGORIES.includes(category) || category === 'PCB') && (
                 <div className="bg-blue-50 p-2 rounded text-xs text-blue-700 flex items-start gap-2">
                     <Info size={14} className="mt-0.5 flex-shrink-0"/>
-                    <span>This item is for <strong>recording only</strong>. It will be synced to Stats but will NOT affect your current wallet balance.</span>
+                    <span>This item is for <strong>recording only</strong>. It will be synced to Stats/Tax but will NOT affect your current wallet balance.</span>
                 </div>
             )}
 
@@ -312,7 +377,7 @@ export const ExpensesView: React.FC = () => {
                         onChange={e => setIsTaxRelief(e.target.checked)}
                         className="w-5 h-5 rounded text-ios-blue focus:ring-ios-blue border-gray-300"
                      />
-                     <label htmlFor="taxRelief" className="text-sm font-medium text-gray-700 select-none">Eligible for Tax Relief</label>
+                     <label htmlFor="taxRelief" className="text-sm font-medium text-gray-700 select-none">Eligible for Tax Relief / Tax Info</label>
                   </div>
                   
                   {isTaxRelief && (
@@ -339,9 +404,15 @@ export const ExpensesView: React.FC = () => {
               </div>
             )}
 
-            <Button type="submit" className="w-full flex items-center justify-center gap-2">
-                <Plus size={18} /> Add Transaction
-            </Button>
+            <div className="flex gap-2">
+                {editingId && (
+                    <Button type="button" variant="secondary" onClick={resetForm} className="flex-1">Cancel</Button>
+                )}
+                <Button type="submit" className="flex-1 flex items-center justify-center gap-2">
+                    {editingId ? <Save size={18}/> : <Plus size={18} />} 
+                    {editingId ? "Update Transaction" : "Add Transaction"}
+                </Button>
+            </div>
         </form>
       </Card>
 
@@ -351,7 +422,7 @@ export const ExpensesView: React.FC = () => {
         {filteredTransactions
             .sort((a,b) => b.date.localeCompare(a.date))
             .map(t => (
-            <div key={t.id} className={`bg-white p-4 rounded-xl shadow-sm border ${t.isExcludedFromBalance ? 'border-dashed border-gray-300 bg-gray-50/50' : 'border-gray-100'} flex justify-between items-center`}>
+            <div key={t.id} className={`bg-white p-4 rounded-xl shadow-sm border ${t.isExcludedFromBalance ? 'border-dashed border-gray-300 bg-gray-50/50' : 'border-gray-100'} flex justify-between items-center group`}>
                 <div className="flex items-center gap-3 overflow-hidden">
                     <div className={`w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center ${t.isExcludedFromBalance ? 'bg-gray-200 text-gray-500' : t.type === 'income' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
                         {t.type === 'income' ? '+' : '-'}
@@ -375,9 +446,14 @@ export const ExpensesView: React.FC = () => {
                     <span className={`font-semibold ${t.isExcludedFromBalance ? 'text-gray-400' : t.type === 'income' ? 'text-green-600' : 'text-gray-900'}`}>
                         {t.type === 'income' ? '+' : '-'}{t.amount.toFixed(2)}
                     </span>
-                    <button onClick={() => deleteTransaction(t.id)} className="text-gray-400 hover:text-red-500">
-                        <Trash2 size={16} />
-                    </button>
+                    <div className="flex gap-1">
+                        <button onClick={() => handleEdit(t)} className="p-1.5 text-gray-300 hover:text-blue-500 hover:bg-blue-50 rounded transition-colors">
+                            <Edit2 size={16} />
+                        </button>
+                        <button onClick={() => deleteTransaction(t.id)} className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded transition-colors">
+                            <Trash2 size={16} />
+                        </button>
+                    </div>
                 </div>
             </div>
         ))}
