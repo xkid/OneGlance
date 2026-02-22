@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { CURRENCIES, InvestmentItem } from '../types';
-import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, AreaChart, Area } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, AreaChart, Area, LabelList } from 'recharts';
 import { Card, Button, Input } from '../components/Shared';
 import { Upload, FileDown, Wallet, Heart, TrendingUp, FileText, Landmark, AlertCircle, Calendar, ArrowRight, ArrowDown, ArrowUp, Banknote, Trash2, AlertTriangle, X } from 'lucide-react';
 
@@ -16,6 +16,10 @@ export const StatsView: React.FC = () => {
   const [selectedTaxYear, setSelectedTaxYear] = useState<number>(new Date().getFullYear());
   const [selectedShareCurrency, setSelectedShareCurrency] = useState<string>('All');
   const [selectedSalaryYear, setSelectedSalaryYear] = useState<number>(new Date().getFullYear());
+  
+  // New State for Expenses View
+  const [selectedExpenseYear, setSelectedExpenseYear] = useState<number>(new Date().getFullYear());
+  const [selectedExpenseMonth, setSelectedExpenseMonth] = useState<number>(new Date().getMonth());
 
   // Reset Modal State
   const [showResetModal, setShowResetModal] = useState(false);
@@ -66,19 +70,27 @@ export const StatsView: React.FC = () => {
   // --- DATA PREPARATION ---
 
   // 1. EXPENSES DATA
-  const expenseByCategory = useMemo(() => {
-    return data.transactions
-        .filter(t => t.type === 'expense' && !t.isExcludedFromBalance)
+  const monthlyExpenseByCategory = useMemo(() => {
+    const targetMonthStr = `${selectedExpenseYear}-${String(selectedExpenseMonth + 1).padStart(2, '0')}`;
+    
+    const breakdown = data.transactions
+        .filter(t => 
+            t.type === 'expense' && 
+            !t.isExcludedFromBalance && 
+            t.date.startsWith(targetMonthStr)
+        )
         .reduce((acc, t) => {
             acc[t.category] = (acc[t.category] || 0) + t.amount;
             return acc;
         }, {} as Record<string, number>);
-  }, [data.transactions]);
 
-  const pieData = Object.keys(expenseByCategory).map(key => ({
-      name: key,
-      value: expenseByCategory[key]
-  })).sort((a,b) => b.value - a.value).slice(0, 6);
+    return Object.keys(breakdown)
+        .map(key => ({
+            name: key,
+            amount: breakdown[key]
+        }))
+        .sort((a, b) => b.amount - a.amount);
+  }, [data.transactions, selectedExpenseYear, selectedExpenseMonth]);
 
   const monthlyTrend = useMemo(() => {
     const trend = data.transactions
@@ -494,26 +506,47 @@ export const StatsView: React.FC = () => {
         {/* --- VIEW: EXPENSES --- */}
         {moduleView === 'expenses' && (
             <>
-                <Card title="Expense Breakdown (All Time)">
-                    <div className="h-[250px] w-full">
-                        {pieData.length > 0 ? (
-                            <ResponsiveContainer width="100%" height="100%">
-                                <PieChart>
-                                    <Pie data={pieData} innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
-                                        {pieData.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
-                                    </Pie>
-                                    <Tooltip />
-                                </PieChart>
-                            </ResponsiveContainer>
-                        ) : <div className="h-full flex items-center justify-center text-gray-400">No data</div>}
+                <Card title="Monthly Expense Breakdown">
+                    <div className="flex justify-between items-center mb-4">
+                        <div className="flex gap-2">
+                             <select 
+                                value={selectedExpenseMonth} 
+                                onChange={e => setSelectedExpenseMonth(parseInt(e.target.value))}
+                                className="text-xs bg-gray-100 p-1.5 rounded-lg font-semibold border-none focus:ring-0"
+                            >
+                                {Array.from({length: 12}, (_, i) => (
+                                    <option key={i} value={i}>{new Date(0, i).toLocaleDateString('default', {month: 'long'})}</option>
+                                ))}
+                            </select>
+                            <select 
+                                value={selectedExpenseYear} 
+                                onChange={e => setSelectedExpenseYear(parseInt(e.target.value))}
+                                className="text-xs bg-gray-100 p-1.5 rounded-lg font-semibold border-none focus:ring-0"
+                            >
+                                {yearOptions.map(y => <option key={y} value={y}>{y}</option>)}
+                            </select>
+                        </div>
+                        <div className="text-right">
+                             <p className="text-[10px] text-gray-500 uppercase">Total</p>
+                             <p className="font-bold text-red-600">
+                                 {monthlyExpenseByCategory.reduce((sum, item) => sum + item.amount, 0).toLocaleString(undefined, {minimumFractionDigits: 2})}
+                             </p>
+                        </div>
                     </div>
-                    <div className="flex flex-wrap gap-2 justify-center mt-2">
-                        {pieData.map((entry, index) => (
-                            <div key={entry.name} className="flex items-center gap-1 text-xs">
-                                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }}></span>
-                                <span className="text-gray-600">{entry.name}</span>
-                            </div>
-                        ))}
+
+                    <div className="h-[400px] w-full">
+                        {monthlyExpenseByCategory.length > 0 ? (
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={monthlyExpenseByCategory} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                                    <XAxis type="number" hide />
+                                    <YAxis dataKey="name" type="category" width={100} tick={{fontSize: 10}} interval={0} />
+                                    <Tooltip cursor={{fill: '#f3f4f6'}} formatter={(value: any) => value?.toLocaleString(undefined, {minimumFractionDigits: 2})} />
+                                    <Bar dataKey="amount" fill="#FF8042" radius={[0, 4, 4, 0]} barSize={20}>
+                                        <LabelList dataKey="amount" position="right" formatter={(val: any) => val?.toLocaleString(undefined, {minimumFractionDigits: 2})} style={{fontSize: '10px', fill: '#666'}} />
+                                    </Bar>
+                                </BarChart>
+                            </ResponsiveContainer>
+                        ) : <div className="h-full flex items-center justify-center text-gray-400">No expenses found for this period</div>}
                     </div>
                 </Card>
 
